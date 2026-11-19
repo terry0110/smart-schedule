@@ -37,6 +37,7 @@ import com.terry.smartschedule.notify.NotifyAction
 import com.terry.smartschedule.notify.Notifications
 import com.terry.smartschedule.notify.ReminderScheduler
 import com.terry.smartschedule.notify.RemindStyle
+import com.terry.smartschedule.notify.ReviseInbox
 import com.terry.smartschedule.notify.ServiceHealth
 import com.terry.smartschedule.data.Category
 import com.terry.smartschedule.data.EventSearch
@@ -44,6 +45,7 @@ import com.terry.smartschedule.parse.CategoryRules
 import com.terry.smartschedule.parse.DateTimeParser
 import com.terry.smartschedule.parse.ParseService
 import com.terry.smartschedule.parse.Prefs
+import com.terry.smartschedule.parse.TextNorm
 import com.terry.smartschedule.util.Insets
 import com.terry.smartschedule.util.TimeFmt
 import kotlinx.coroutines.launch
@@ -194,6 +196,7 @@ class MainActivity : AppCompatActivity() {
             (b.rvEvents.layoutManager as? LinearLayoutManager)
                 ?.scrollToPositionWithOffset(0, 0)
         }
+        b.bannerRevise.setOnClickListener { openReviseInbox() }
 
         // 输入框有内容才显示"清空"
         b.etInput.addTextChangedListener(object : TextWatcher {
@@ -215,6 +218,16 @@ class MainActivity : AppCompatActivity() {
             b.etSearch.setText(q)
             b.etSearch.setSelection(b.etSearch.text?.length ?: 0)
         }
+
+        // 从「改期没认准」通知点进来。转屏重建时不重复弹
+        // （savedInstanceState != null 说明是恢复，不是新点进来的）
+        if (savedInstanceState == null) handleReviseIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleReviseIntent(intent)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -455,6 +468,15 @@ class MainActivity : AppCompatActivity() {
      * 左边从「取消」变「删除」，右边从「添加到日程」变「保存修改」。
      */
     private fun openEditor(event: Event) {
+        showEditor(event, null)
+    }
+
+    /**
+     * @param hint      覆盖面板底部的说明。改期确认流程用 —— 用户是从一条通知跳到
+     *                  某条日程上的，得让他知道"为什么打开的是这一条"。
+     * @param reviseKey 如果这次编辑来自"改期待办"，保存成功后把那条待办从队列里移除
+     */
+    private fun showEditor(event: Event, hint: String?, reviseKey: String? = null) {
         sheet?.dismiss()
         val (dlg, vb) = createSheet()
 
@@ -493,6 +515,7 @@ class MainActivity : AppCompatActivity() {
             vb.boxWarnings.isVisible = false
             vb.tvHint.text = "改完点保存，提醒会按新时间重新排"
         }
+        if (hint != null) vb.tvHint.text = hint
 
         // 编辑模式下左按钮变成删除（点下去还会再弹一次确认）
         vb.btnCancel.setText(R.string.delete_confirm)
@@ -507,12 +530,211 @@ class MainActivity : AppCompatActivity() {
             vb.btnSave.isEnabled = false
             saveEdit(vb, event) { ok ->
                 vb.btnSave.isEnabled = true
-                if (ok) dlg.dismiss()
+                if (ok) {
+                    reviseKey?.let(::forgetRevise)
+                    dlg.dismiss()
+                }
             }
         }
 
         sheet = dlg
         dlg.show()
+    }
+
+    // ---------------- 改期没认准：让用户选 ----------------
+
+    /**
+     * 处理「改期需要确认」通知带进来的 intent。
+     *
+     * 这条链路刻意**不落库**：通知被点开之前一直躺在系统通知栏里，
+     * 参数存在 PendingIntent 的 extras 里，进程被杀也不会丢。
+     * 应用内卡片（[ReviseInbox]）只是同一条信息的展示层，进程重启后为空。
+     */
+    private fun handleReviseIntent(intent: Intent?) {
+        if (intent?.action != NotifyAction.ACTION_REVISE_CONFIRM) return
+        // 消费掉，避免同一个 intent 被重复处理
+        intent.action = null
+
+        val text = intent.getStringExtra(NotifyAction.EXTRA_REVISE_TEXT).orEmpty()
+        val oldStart = intent.getLongExtra(NotifyAction.EXTRA_REVISE_OLD_START, -1L)
+            .takeIf { it > 0 }
+        val newStart = intent.getLongExtra(NotifyAction.EXTRA_REVISE_NEW_START, -1L)
+            .takeIf { it > 0 }
+        val newHasTime = intent.getBooleanExtra(NotifyAction.EXTRA_REVISE_NEW_HAS_TIME, true)
+        val guessed = intent.getBooleanExtra(NotifyAction.EXTRA_REVISE_MERIDIEM, false)
+        val newLocation = intent.getStringExtra(NotifyAction.EXTRA_REVISE_NEW_LOCATION)
+
+        Notifications.clearReviseAsk(this)
+        val item = ReviseInbox.Item(
+            key = TextNorm.key(text).ifEmpty { text },
+            text = text,
+            oldStartAt = oldStart,
+            newStartAt = newStart,
+            newHasTime = newHasTime,
+            meridiemGuessed = guessed,
+            newLocation = newLocation
+        )
+        // 冷启动时服务可能早被杀了，内存队列是空的；补一条，用户在确认框里点
+        // "稍后"之后主界面还能看到这张卡片
+        ReviseInbox.add(item)
+        updateReviseBanner()
+        openReviseItem(item)
+    }
+
+    /** 主界面横幅：列出内存里所有待处理的改期，选一条 */
+    private fun openReviseInbox() {
+        val items = ReviseInbox.snapshot()
+        if (items.isEmpty()) {
+            updateReviseBanner()
+            toast("没有待处理的改期")
+            return
+        }
+        if (items.size == 1) {
+            openReviseItem(items[0])
+            return
+        }
+        val labels = items.map {
+            val t = it.text
+            if (t.length > 24) "「${t.take(24)}…」" else "「$t」"
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("选择要处理的改期")
+            .setItems(labels) { _, i -> openReviseItem(items[i]) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun openReviseItem(item: ReviseInbox.Item) {
+        lifecycleScope.launch {
+            // 和自动改期用同一个候选口径，避免"自动说没有、这里又列出来"
+            val cands = Repo.reviseCandidates(item.oldStartAt)
+            if (cands.isEmpty()) {
+                toast("没找到可能被改的日程，可以点开列表手动修改")
+                ReviseInbox.remove(item.key)
+                updateReviseBanner()
+                return@launch
+            }
+            if (cands.size == 1) {
+                askReviseOn(cands[0], item)
+                return@launch
+            }
+            sheet?.dismiss()
+            val labels = cands.map {
+                "${it.title} · ${TimeFmt.summary(it.startAt, it.hasTime, null)}"
+            }.toTypedArray()
+            MaterialAlertDialogBuilder(this@MainActivity)
+                .setTitle("这条改期说的是哪一条？")
+                .setItems(labels) { _, i -> askReviseOn(cands[i], item) }
+                .setNegativeButton("稍后处理", null)
+                .show()
+        }
+    }
+
+    private fun askReviseOn(target: Event, item: ReviseInbox.Item) {
+        val newStart = item.newStartAt
+        val newLocation = item.newLocation
+
+        if (newStart == null && newLocation == null) {
+            // 原文只说了"推迟/取消"但没给可用信息 —— 送进编辑面板自己补。
+            // 复用现有面板：查重、重置完成状态、重排提醒都在 saveEdit 里。
+            toast("通知里没说清新时间/地点，请手动改")
+            showEditor(
+                target,
+                "这是通知里提到的改期对象：把时间或地点改成新的后保存",
+                item.key
+            )
+            return
+        }
+
+        val oldLabel = TimeFmt.summary(target.startAt, target.hasTime, target.location)
+        val msg = buildString {
+            append("「").append(target.title).append("」\n")
+            if (newStart != null) {
+                append(oldLabel).append("  →  ")
+                    .append(TimeFmt.summary(newStart, item.newHasTime, newLocation ?: target.location))
+                append("\n")
+            }
+            if (newLocation != null) {
+                append("地点：").append(target.location ?: "（未填）")
+                    .append("  →  ").append(newLocation).append("\n")
+            }
+            append("\n")
+            if (item.meridiemGuessed) append("上下午是按原时间推的，请核对一眼。\n\n")
+            append("通知原文：").append(item.text.take(120))
+        }
+        val timeChange = newStart != null
+        MaterialAlertDialogBuilder(this)
+            .setTitle(if (timeChange) "确认改期" else "确认换地点")
+            .setMessage(msg)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(if (timeChange) "确认改期" else "确认换地点") { _, _ ->
+                if (timeChange) applyRevise(target, item) else applyRelocate(target, item)
+            }
+            .show()
+    }
+
+    private fun applyRevise(target: Event, item: ReviseInbox.Item) {
+        val newStart = item.newStartAt ?: return
+        lifecycleScope.launch {
+            val note = buildString {
+                append(target.note.orEmpty())
+                if (isNotEmpty()) append("\n\n")
+                append("【据通知改期】").append(item.text.take(200))
+            }
+            val updated = Repo.reschedule(
+                target.id, newStart, item.newHasTime, note, item.newLocation
+            ) ?: run {
+                toast("这条日程已经不在了")
+                forgetRevise(item.key)
+                return@launch
+            }
+            // 先撤旧闹钟再按新时间排：只 schedule 不 cancel 的话，
+            // 若新时间被判定为"已开始"，旧闹钟会留在系统里
+            ReminderScheduler.cancel(this@MainActivity, target.id)
+            ReminderScheduler.schedule(this@MainActivity, updated)
+            Notifications.clearRemind(this@MainActivity, target.id)
+            forgetRevise(item.key)
+            toast("已改期：${updated.title}")
+            reload()
+        }
+    }
+
+    private fun applyRelocate(target: Event, item: ReviseInbox.Item) {
+        val newLocation = item.newLocation ?: return
+        lifecycleScope.launch {
+            val note = buildString {
+                append(target.note.orEmpty())
+                if (isNotEmpty()) append("\n\n")
+                append("【据通知改地点】").append(item.text.take(200))
+            }
+            val updated = Repo.relocate(target.id, newLocation, note) ?: run {
+                toast("这条日程已经不在了")
+                forgetRevise(item.key)
+                return@launch
+            }
+            forgetRevise(item.key)
+            toast("已换地点：${updated.location}")
+            reload()
+        }
+    }
+
+    /** 处理完一条从内存队列里移除，并刷新横幅 */
+    private fun forgetRevise(key: String) {
+        ReviseInbox.remove(key)
+        // 通知栏那条询问只有固定一个槽位，处理掉一条就撤掉，别让用户再点进空列表
+        Notifications.clearReviseAsk(this)
+        updateReviseBanner()
+    }
+
+    /** 主界面「改期待确认」横幅 */
+    private fun updateReviseBanner() {
+        val n = ReviseInbox.snapshot().size
+        val show = n > 0 && !selectionMode && !searchMode
+        b.bannerRevise.isVisible = show
+        if (show) {
+            b.tvReviseTitle.text = "有 $n 条改期需要确认"
+            b.tvReviseDesc.text = "点我选择是哪一条日程"
+        }
     }
 
     /** 两个入口共用的面板骨架：亚克力底、展开状态、日期时间按钮、全天联动 */
@@ -963,6 +1185,7 @@ class MainActivity : AppCompatActivity() {
             b.tvBannerTitle.text = "有 $lastPendingCount 条识别结果待确认"
             b.tvBannerDesc.text = "日期是我推算的，或者原文有对不上的地方，点开核对"
         }
+        updateReviseBanner()
     }
 
     private fun buildRows(list: List<Event>): List<Row> {

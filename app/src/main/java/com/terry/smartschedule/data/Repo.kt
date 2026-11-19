@@ -2,6 +2,7 @@ package com.terry.smartschedule.data
 
 import android.content.Context
 import android.database.Cursor
+import com.terry.smartschedule.notify.Notifications
 import com.terry.smartschedule.notify.ReminderScheduler
 import com.terry.smartschedule.parse.Prefs
 import com.terry.smartschedule.parse.Revise
@@ -268,38 +269,44 @@ object Repo {
     ): Boolean = findSameEvent(title, startAt, location, windowMs = 5 * 60_000L) != null
 
     /**
-     * 找「改期 / 取消通知」指向的那条日程。
+     * 「改期 / 取消通知」可能指向的候选日程。
      *
-     * 匹配策略，从紧到松：
+     * 窗口口径：
      * 1. 有旧时间：只在旧时间 ±30 分钟里找。原文自己写了「原定四点」，这是最强的锚点。
      * 2. 没旧时间：在今天和明天里找（改期通知几乎不会指向更远的事）。
-     * 3. 范围里只有一条 → 就用它。
-     * 4. 多条 → 用文字重叠过滤，剩下唯一才用；否则返回 null，**不猜**。
      *
-     * 为什么最后一步宁可返回 null：改错一条日程用户很难发现（时间被悄悄挪了），
-     * 而漏改最多是"没生效"，用户看得见。两边代价不对称。
+     * 已完成（已经发生过）、已取消、待确认（还没算数）的一律排除。
      *
-     * @param titleHint 传整句通知原文，不要传解析出来的标题 —— 改期句式的标题通常很脏
+     * 单独暴露成函数，是因为「自动改」和「让用户选」用的是同一批候选：
+     * 如果两边各查一套，会出现"自动改说没有、确认界面却列出来"的矛盾。
      */
-    suspend fun findReviseTarget(oldStartAt: Long?, titleHint: String): Event? = withContext(Dispatchers.IO) {
+    suspend fun reviseCandidates(oldStartAt: Long?): List<Event> = withContext(Dispatchers.IO) {
         val (from, to) = if (oldStartAt != null) {
             (oldStartAt - 30 * 60_000L) to (oldStartAt + 30 * 60_000L)
         } else {
             val now = System.currentTimeMillis()
             now to (now + 2 * 24 * 3600_000L)
         }
-        val cands = helper.readableDatabase.query(
+        helper.readableDatabase.query(
             EventDb.TABLE, null,
             "${EventDb.C_START} BETWEEN ? AND ?",
             arrayOf(from.toString(), to.toString()),
             null, null, "${EventDb.C_START} ASC"
         ).use { it.toEvents() }
-            // 已完成的不改（已经发生过的事）、已标记取消的不重复标、待确认的还没算数
             .filter { !it.done && !it.revoked && !it.pending }
-
-        // 选哪一条的逻辑在 Revise.pick 里，纯函数，逐条钉过单测
-        Revise.pick(cands, titleHint)
     }
+
+    /**
+     * 找「改期 / 取消通知」指向的那条日程。
+     *
+     * 只有一条就用；多条用文字重叠过滤，剩下唯一才用；否则返回 null，**不猜**。
+     * 为什么宁可返回 null：改错一条日程用户很难发现（时间被悄悄挪了），
+     * 而漏改最多是"没生效"，用户看得见。两边代价不对称。
+     *
+     * @param titleHint 传整句通知原文，不要传解析出来的标题 —— 改期句式的标题通常很脏
+     */
+    suspend fun findReviseTarget(oldStartAt: Long?, titleHint: String): Event? =
+        Revise.pick(reviseCandidates(oldStartAt), titleHint)
 
     /** 标记「来源通知说取消了」。不删数据，只是打个标 + 记下理由 */
     suspend fun revoke(id: Long, reason: String) = withContext(Dispatchers.IO) {
@@ -313,13 +320,43 @@ object Repo {
     }
 
     /**
-     * 改期：只动时间和"哪天有没有具体钟点"，标题、地点、分类一律不碰。
+     * 改期：只动时间 / 地点和备注，标题、分类一律不碰。
+     *
+     * @param newLocation 同一句话里还换了地点（"改到 B 栋，下午 4 点"）；null = 地点不变
      * @return 更新后的日程；id 不存在返回 null
      */
-    suspend fun reschedule(id: Long, newStartAt: Long, newHasTime: Boolean, note: String?): Event? {
+    suspend fun reschedule(
+        id: Long,
+        newStartAt: Long,
+        newHasTime: Boolean,
+        note: String?,
+        newLocation: String? = null
+    ): Event? {
         val old = findById(id) ?: return null
-        val next = old.copy(startAt = newStartAt, hasTime = newHasTime, note = note ?: old.note)
+        val next = old.copy(
+            startAt = newStartAt,
+            hasTime = newHasTime,
+            note = note ?: old.note,
+            location = newLocation ?: old.location
+        )
         update(next)
+        return next
+    }
+
+    /**
+     * 只换地点，时间不动。
+     *
+     * 不重排闹钟：提醒点只由时间决定。但**如果那条提醒已经挂在通知栏里**，
+     * 正文里的地点会是旧的 —— 交给 [Notifications.refreshRemind] 原地更新
+     * （静默、不打扰、不挂全屏），用户看到的地址就和库里一致了。
+     */
+    suspend fun relocate(id: Long, newLocation: String, note: String?): Event? {
+        val old = findById(id) ?: return null
+        val next = old.copy(location = newLocation, note = note ?: old.note)
+        update(next)
+        // 放在 Repo 而不是各个调用点：改地点有服务自动改和界面手动确认两条路，
+        // 逐处加必然漏一个，漏掉的那条就会一直显示旧地址。
+        Notifications.refreshRemind(app, next)
         return next
     }
 

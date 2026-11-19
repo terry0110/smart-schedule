@@ -35,6 +35,12 @@ class ReviseTest {
         return v as Revise.Verdict.Cancel
     }
 
+    private fun relocate(text: String): Revise.Verdict.Relocate {
+        val v = Revise.detect(text, now)
+        assertTrue("应该判成换地点，实际 $v：$text", v is Revise.Verdict.Relocate)
+        return v as Revise.Verdict.Relocate
+    }
+
     // ---------------- 改期 ----------------
 
     @Test
@@ -141,6 +147,77 @@ class ReviseTest {
     fun `只有动词没时间 报不清楚而不是乱改`() {
         val v = Revise.detect("那个会议提前了", now)
         assertTrue("应该是 Unclear，实际 $v", v is Revise.Verdict.Unclear)
+    }
+
+    // ---------------- 换地点 ----------------
+
+    @Test
+    fun `换到B栋301能抽出地点`() {
+        val r = relocate("换到B栋301了")
+        assertEquals("B栋301", r.newLocation)
+        assertNull("原文没提原时间", r.oldStartAt)
+    }
+
+    @Test
+    fun `原定时间加换地点 两个锚点都要有`() {
+        val r = relocate("原定明天下午四点的会在A栋，换到B栋301")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 16, 0), dt(r.oldStartAt!!))
+        assertEquals("B栋301", r.newLocation)
+    }
+
+    @Test
+    fun `改到下午三点仍然是改时间，不是改地点`() {
+        val m = move("改到下午三点")
+        assertNull("地点不该被时间片段污染", m.newLocation)
+        assertEquals(LocalDateTime.of(2026, 11, 20, 15, 0), dt(m.newStartAt))
+    }
+
+    @Test
+    fun `在图书馆开会不是地点变更`() {
+        assertEquals(Revise.Verdict.None, Revise.detect("在图书馆开会", now))
+    }
+
+    @Test
+    fun `改到3号是改日期不是换地点`() {
+        // 「号」不在地点形态词里：3号是日期，不是门牌
+        val m = move("改到3号")
+        assertNull(m.newLocation)
+        assertEquals(false, m.newHasTime)
+    }
+
+    @Test
+    fun `换地点也值得让用户确认`() {
+        assertTrue(Revise.worthAsking(Revise.detect("换到B栋301了", now)))
+    }
+
+    // ---------------- 该不该弹确认 ----------------
+
+    @Test
+    fun `信息不全时带上原定时间，供人工确认定位`() {
+        val v = Revise.detect("原定明天下午四点的会议推迟了", now)
+        assertTrue("应该是 Unclear，实际 $v", v is Revise.Verdict.Unclear)
+        v as Revise.Verdict.Unclear
+        assertTrue("应带上原定时间，实际 ${v.oldStartAt}", v.oldStartAt != null)
+        assertEquals(LocalDateTime.of(2026, 11, 20, 16, 0), dt(v.oldStartAt!!))
+    }
+
+    @Test
+    fun `没有对象的模糊改期不打扰用户`() {
+        val v = Revise.detect("那个会议提前了", now)
+        assertTrue("应该是 Unclear，实际 $v", v is Revise.Verdict.Unclear)
+        assertTrue("没有旧时间就不该发确认通知", !Revise.worthAsking(v))
+    }
+
+    @Test
+    fun `有旧时间的模糊改期值得让用户确认`() {
+        val v = Revise.detect("原定明天下午四点的会议推迟了", now)
+        assertTrue(Revise.worthAsking(v))
+    }
+
+    @Test
+    fun `取消和普通消息不弹确认`() {
+        assertTrue(!Revise.worthAsking(Revise.detect("原定明天的会取消了", now)))
+        assertTrue(!Revise.worthAsking(Revise.detect("明天下午三点开会", now)))
     }
 
     @Test

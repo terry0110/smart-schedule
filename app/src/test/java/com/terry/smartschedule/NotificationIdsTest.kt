@@ -52,6 +52,17 @@ class NotificationIdsTest {
     }
 
     @Test
+    fun `改期确认通知 id 不和回执撞`() {
+        // 两个固定号如果撞了，一条会覆盖另一条，用户只会看到最后那条
+        assertNotEquals(
+            "回执和改期确认不能用同一个 id",
+            NotificationIds.CAPTURE_SUMMARY_ID,
+            NotificationIds.REVISE_ASK_ID
+        )
+        assertTrue(NotificationIds.REVISE_ASK_ID > 0)
+    }
+
+    @Test
     fun `id 再大也不会变成负数`() {
         // 负数会被系统当成"没有 requestCode"，行为不可预期
         val bigs = listOf(1L, 100_000L, 2_147_483_647L, Long.MAX_VALUE)

@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.37（versionCode 37）** · 包名 `com.terry.smartschedule` · 249 个单测 · DB v8
+> 当前版本：**v1.40（versionCode 40）** · 包名 `com.terry.smartschedule` · 265 个单测 · DB v8
 > 最后更新：2026-11-19
 
 ---
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（249 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（265 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -184,7 +184,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── Category.kt              32 行    五类枚举：key / 展示名 / 颜色
 │   ├── Event.kt                 53 行    日程实体（纯 data class，无 Android 依赖）
 │   ├── EventDb.kt              216 行    SQLiteOpenHelper，DB v8，三张表
-│   ├── Repo.kt                 291 行    全部数据库访问 + 系统日历镜像（见 4.4）
+│   ├── Repo.kt                 356 行    全部数据库访问 + 系统日历镜像（见 4.4）
 │   ├── EventSearch.kt          126 行    检索：拆词/匹配/高亮区间（纯函数，SearchTest 守着）
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
@@ -192,13 +192,13 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── SegmentParser.kt         72 行    多段文本里挑一条能用的解析结果
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
-│   ├── Revise.kt               210 行    ★ 认「改期/取消」句式 + 挑改哪一条（ReviseTest 守着）
+│   ├── Revise.kt               329 行    ★ 认「改期/取消/换地点」句式 + 挑改哪一条（ReviseTest 守着）
 │   └── Prefs.kt                159 行    全部设置项（SharedPreferences）
 ├── sync/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 500 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 672 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           166 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt              84 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -207,8 +207,9 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── ReminderPlan.kt          90 行    ★ "该在什么时候响"（纯函数）
 │   ├── ReminderScheduler.kt    205 行    落闹钟、取消、补发、孤儿提醒清扫
 │   ├── ReminderReceiver.kt      42 行    闹钟到点 → 发通知
-│   ├── Notifications.kt        425 行    ★ 渠道、四档提醒、脱敏通知、按钮 PendingIntent
-│   ├── NotificationIds.kt       45 行    通知 id / requestCode 的纯算术（有单测）
+│   ├── Notifications.kt        512 行    ★ 渠道、四档提醒、脱敏通知、改期询问、按钮 PendingIntent
+│   ├── NotificationIds.kt       48 行    通知 id / requestCode 的纯算术（有单测）
+│   ├── ReviseInbox.kt           56 行    应用内改期待办（纯内存，上限 5 / 3 天）
 │   ├── RemindStyle.kt           98 行    四档提醒方式的枚举与解析规则
 │   ├── CaptureLog.kt           205 行    抓取流水（SQLite，24h TTL + 500 行上限）
 │   ├── MsgSig.kt                48 行    通知内容指纹（SHA-256，带会话维度）
@@ -217,9 +218,9 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── KeepAliveService.kt     131 行    前台服务保活（常驻低优先级通知）
 │   ├── PendingActionReceiver.kt 123 行  通知按钮：确认 / 删除 / 知道了 / 稍后
 │   ├── BootReceiver.kt          37 行    开机 / 应用更新后重排提醒 + 补发
-│   └── NotifyAction.kt          30 行    action 常量
+│   └── NotifyAction.kt          42 行    action / extras 常量
 ├── ui/
-│   ├── MainActivity.kt        1160 行   ★ 列表、检索、输入框、识别、编辑面板、多选删除
+│   ├── MainActivity.kt        1242 行   ★ 列表、检索、输入框、识别、编辑面板、改期确认、多选删除
 │   ├── SettingsActivity.kt     598 行    ★ 所有开关、授权引导、日历同步开关、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
@@ -392,9 +393,15 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 | 结论 | 触发 | 动作 |
 |---|---|---|
-| `Move` | 有改期动词 + 能抽出新时间 | `Repo.findReviseTarget` 找目标 → 改时间 → 重排闹钟 |
+| `Move` | 有改期动词 + 能抽出新时间 | `Repo.findReviseTarget` 找目标 → 改时间（可同时改地点）→ 重排闹钟 |
+| `Relocate` | 动词后是地址、没有时间词 | 找目标 → `Repo.relocate` 改地点（已弹出的提醒原地刷新）；时间没动，不重排闹钟 |
 | `Cancel` | 有取消动词（`不取消` 不算） | 目标 `revoked=1` + 停提醒，**不删** |
-| `Unclear` | 看着像改期但抽不出时间 | 什么都不做，只记一条日志 |
+| `Unclear` | 看着像改期但抽不出时间/地点 | 原文有「原定…」时发通知请用户确认；没有就只记日志 |
+
+**地点怎么认**（v1.39）：动词表加了 `换到/移到/搬到/调到`，但**没有裸「在」**——
+「在图书馆开会」是正常日程。动词后的片段必须同时满足：出现 `楼/栋/室/馆/厅/场/院/层…`
+这类形态词、且**不含任何时间词**，才算地点。「号」刻意不在形态词里：`改到3号`
+是改日期不是换门牌。形态判断在 `locationAfter()`，纯函数，`ReviseTest` 逐条钉着。
 
 匹配策略（`Revise.pick`，纯函数）：旧时间 ±30 分钟内取候选；只有一条就用它，
 多条要用通知原文里的字筛到唯一一条，筛不干净就返回 null。**宁可漏改，不可乱改** ——
@@ -402,6 +409,25 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 「下午四点的会提前至3点」里那个 3 点没有上下午，旧时间在下午就推成 15:00，
 并在日志里写明「上下午是按原时间推的」。
+
+**信息不全时交给用户（v1.38 最小版，v1.39 扩到地点）**：
+
+1. `Move` / `Relocate` 匹配不到目标，或 `Unclear` 且 `Revise.worthAsking()` 为真时，
+   `askReviseUser()` 先查 `Repo.reviseCandidates()`，**有候选才发**「有一条改期需要确认」通知
+2. 同时往 `ReviseInbox`（纯内存，上限 5、3 天过期）塞一张待办，主界面横幅能点开
+3. `MainActivity.handleReviseIntent()` / `openReviseItem()` 复用同一批候选：
+   只有一条直接确认，多条让用户选；新时间/新地点有值就弹 old → new 确认；
+   两样都没有就打开编辑面板让用户自己补
+
+**不落库**：参数放在 PendingIntent extras 里，进程被杀不丢；应用内卡片只是展示层，
+重启后为空（通知还在，点通知照样能处理）。通知 id 固定
+`NotificationIds.REVISE_ASK_ID`（900_002），避免一次群聊刷屏把通知栏塞满。
+「会议提前了」这种连对象都没有的句子 `worthAsking=false`，只记日志 ——
+宁可不问，也不要在通知栏制造噪音。
+
+改期/取消/换地点成功、以及新增待办时，服务会向包内发 `ACTION_DATA_CHANGED`，
+主界面在 `onStart` 注册的接收器收到就 `reload()` —— 所以**前台时也会立刻刷新**，
+不需要切出去再回来（v1.39，升级点 3）。
 
 ### 5.2 白名单（`WatchedApps`）
 
@@ -626,6 +652,26 @@ v1.27 加振动档时漏了，v1.30 修好并加了测试。
 必须按「日程 id + 动作」唯一：撞了的话系统会把它们当同一个 PendingIntent，
 点哪条都作用在第一条上，从通知栏完全看不出来。有单测（`NotificationIdsTest`）。
 
+### 7.9 改地点后的提醒刷新（v1.40）
+
+只换地点时时间没变，不需要重排闹钟；但如果那条提醒**已经挂在通知栏里**，
+正文里的地点会停留在旧值。`Notifications.refreshRemind()` 负责原地更新：
+
+- 先查 `getActiveNotifications()`，只有这条提醒确实还在时才更新 ——
+  用户已经划掉的不复活（划掉 = 处理过了）
+- 用同一个通知 id 重建，渠道按这条日程的 `RemindStyle` 选，
+  不会把静音/振动档顺手改成响铃档
+- `setSilent + setOnlyAlertOnce`，并且**不挂全屏意图**：
+  这是内容更正，不是第二次提醒
+- 调用点挂在 `Repo.relocate()` 里，服务自动改和界面手动确认两条路都覆盖
+
+实机验证（Android 9）：提醒 id=13 在通知栏时把地点改到 B栋303，
+`dumpsys` 里 `android.text` 从「A栋401开评审会」变为「B栋303」，
+flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有再次响铃。
+
+如果地点在解析时被并进了标题（「在A栋401开评审会」整句成为标题），
+标题仍会带旧地址 —— 那是解析器的标题口径，不在提醒刷新范围内。
+
 ---
 
 ## 8. UI 层
@@ -643,12 +689,14 @@ v1.27 加振动档时漏了，v1.30 修好并加了测试。
 
 ### 8.2 主界面结构
 
-`activity_main.xml` + `MainActivity.kt`（1160 行，最大的文件，改之前先读完整）：
+`activity_main.xml` + `MainActivity.kt`（1242 行，最大的文件，改之前先读完整）：
 
 - 顶部输入框 + "识别"按钮 → `doParse()` → `DateTimeParser` → `showPreview()` 弹出编辑面板
 - 列表用 `RecyclerView` + `EventAdapter`，行数据是 `Row`（标题 + 时间 + 状态 + 是否选中）
 - 长按进入多选模式 → `enterSelection()` / `toggleSelectAll()` / `confirmDeleteSelected()`
 - 编辑面板是 `BottomSheetDialog` + `sheet_preview.xml`（`createSheet()` 构建）
+- 改期待办（v1.39）：`ReviseInbox` 有内容时列表上方出现「有 N 条改期需要确认」横幅；
+  点开 → 选候选 → 确认时间/地点，或进编辑面板手动补。进程重启卡片清空（通知仍在）
 - 检索（v1.33）：标题栏放大镜 → `openSearch()`；检索条占标题行位置、输入卡同步收起；
   过滤链是 `分类 chip → EventSearch.tokens` 的 AND 匹配（150ms 去抖，`commitSearch()`）
 
@@ -726,7 +774,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 24 个文件、约 3050 行、**249 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 25 个文件、约 2800 行、**265 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -747,7 +795,8 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `WatchedAppsTest` | 白名单 |
 | `SearchTest` | 检索拆词 / 多词 AND / 归一化口径 / 高亮区间 / 命中片段 |
 | `CalTimeTest` | 全天日程 UTC 零点换算（东八区错一天的老坑） |
-| `ReviseTest` | 改期/取消句式识别、上下午推断、改哪一条的匹配策略 |
+| `ReviseTest` | 改期/取消/换地点句式、地点与时间的区分、上下午推断、改哪一条、该不该弹确认 |
+| `ReviseInboxTest` | 应用内改期待办：去重 / 上限 5 / 3 天过期 / 移除 |
 
 ### 10.2 写新测试的规矩
 
@@ -768,7 +817,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.37-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.40-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -895,10 +944,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
    v1.34 起应用没有任何联网能力（清单里没有 INTERNET 权限），这点可以直接验证。
 8. **改期 / 取消只在通知链路生效**。手动往输入框粘一段「原定四点的会改到三点」，
    仍然按新日程处理 —— 手动输入的用户意图是"我要建这条"，替他改已有数据更危险。
-9. **前台时列表不会自动刷新**。改期/取消的通知在 app 正开着时，数据库改了但当前界面
-   不会重绘，要切出去再回来（或冷启动）才看得到。原因是列表只在 `onResume`/操作后
-   `reload()`，没有监听库变化。做起来要加 `LocalBroadcast` 或 Flow，属未实现项。
-10. **没有做"通知撤回"检测**。`onNotificationRemoved` 拿到的 `reason` 无法区分
+9. **没有做"通知撤回"检测**。`onNotificationRemoved` 拿到的 `reason` 无法区分
     "消息被撤回"和"用户读完了"（微信读消息也会取消通知，同为 `REASON_APP_CANCEL`），
     据此自动删日程等于"一读消息日程就消失"。群通知又是合并重绘，新消息会把旧文本挤出，
     没法定位到具体哪条变了。所以只做语义层的改期/取消，不做通知层的事件追踪。
@@ -927,7 +973,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 249 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 265 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -961,4 +1007,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 249 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 265 条测试和保护机制一条条拆掉。

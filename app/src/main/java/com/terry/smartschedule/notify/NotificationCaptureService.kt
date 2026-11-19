@@ -2,6 +2,7 @@ package com.terry.smartschedule.notify
 
 import android.app.Notification
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -13,6 +14,7 @@ import com.terry.smartschedule.parse.ParseService
 import com.terry.smartschedule.parse.SegmentParser
 import com.terry.smartschedule.parse.Prefs
 import com.terry.smartschedule.parse.Revise
+import com.terry.smartschedule.parse.TextNorm
 import com.terry.smartschedule.util.TimeFmt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -197,7 +199,11 @@ class NotificationCaptureService : NotificationListenerService() {
         // - 「会不开了」这种连时间词都没有的，会被 looksLikeSchedule 先拦掉。
         // 两种情况用户看到的都是"日程照旧留着"，比不做还糟。
         val revise = Revise.detect(joined)
-        val isRevision = revise is Revise.Verdict.Move || revise is Revise.Verdict.Cancel
+        val isRevision = revise is Revise.Verdict.Move ||
+            revise is Revise.Verdict.Cancel ||
+            // 只换地点的话通常没有时间词，必须在这里就认成"变更加期"，
+            // 否则会被下面的闲聊判断当成「换到B栋301了」这种聊天丢掉
+            revise is Revise.Verdict.Relocate
 
         // 不像日程的闲聊直接放过，日志留给真正"该识别却没识别"的
         if (!isRevision && !looksLikeSchedule(joined)) {
@@ -244,12 +250,23 @@ class NotificationCaptureService : NotificationListenerService() {
                 scope.launch { applyCancel(app, joined, v) }
                 return
             }
+            is Revise.Verdict.Relocate -> {
+                scope.launch { applyRelocate(app, joined, v) }
+                return
+            }
             is Revise.Verdict.Unclear -> {
-                // 看着像改期但信息不全：宁可什么都不做，也不建一条可能错的
-                CaptureLog.record(
-                    app, joined, CaptureRecord.OUT_SKIPPED,
-                    "像改期但${v.why}，没动"
-                )
+                // 看着像改期但信息不全：不动数据。
+                // 但如果原文提到了「原定…」，值得发一条询问让用户自己选 ——
+                // 这比默默丢掉好，也比猜一条去改安全。
+                scope.launch {
+                    val asked = askReviseUser(joined, v)
+                    CaptureLog.record(
+                        app, joined,
+                        if (asked) CaptureRecord.OUT_PENDING else CaptureRecord.OUT_SKIPPED,
+                        if (asked) "像改期但${v.why}，已提示用户确认"
+                        else "像改期但${v.why}，没动"
+                    )
+                }
                 return
             }
             Revise.Verdict.None -> Unit
@@ -281,26 +298,31 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     /**
-     * 把一条已有日程改到新时间。
+     * 把一条已有日程改到新时间（如果原文同时换了地点，一起改）。
      *
-     * 只改时间，**不改标题、不改地点、不改分类** —— 改期通知里说的只是"时间变了"，
+     * 只改时间 / 地点，**不改标题、不改分类** —— 改期通知里说的只是"变了"，
      * 顺手把别的字段也覆盖掉，等于拿一句可能很脏的通知去替换用户确认过的内容。
      *
-     * 找不到对应日程时什么都不做，但会留一条日志：用户能在处理日志里看到
-     * "我认出这是改期，但没敢动" —— 比默默建一条新日程诚实。
+     * 找不到对应日程时什么都不做，但会留一条日志 + 一条询问：
+     * 用户能在处理日志里看到"我认出这是改期，但没敢动" —— 比默默建一条新日程诚实。
      */
     private suspend fun applyMove(app: String, text: String, v: Revise.Verdict.Move) {
         val target = Repo.findReviseTarget(v.oldStartAt, text)
         if (target == null) {
+            val asked = askReviseUser(text, v)
             CaptureLog.record(
-                app, text, CaptureRecord.OUT_SKIPPED,
-                "像改期，但没找到对应的日程，没动数据"
+                app, text,
+                if (asked) CaptureRecord.OUT_PENDING else CaptureRecord.OUT_SKIPPED,
+                if (asked) "像改期，但没认准是哪条，已提示用户确认"
+                else "像改期，但没找到对应的日程，没动数据"
             )
             return
         }
 
-        if (target.startAt == v.newStartAt) {
-            CaptureLog.record(app, text, CaptureRecord.OUT_SKIPPED, "改期后的时间和原日程一样，不用动")
+        val timeSame = target.startAt == v.newStartAt && target.hasTime == v.newHasTime
+        val locationSame = v.newLocation == null || target.location == v.newLocation
+        if (timeSame && locationSame) {
+            CaptureLog.record(app, text, CaptureRecord.OUT_SKIPPED, "改期后的时间/地点和原日程一样，不用动")
             return
         }
 
@@ -310,16 +332,57 @@ class NotificationCaptureService : NotificationListenerService() {
             append("【据通知改期】").append(text)
         }
 
-        val updated = Repo.reschedule(target.id, v.newStartAt, v.newHasTime, note) ?: return
+        val updated = Repo.reschedule(
+            target.id, v.newStartAt, v.newHasTime, note, v.newLocation
+        ) ?: return
         // 改期后必须重排：原来的闹钟还挂在旧时间上，不重排就会在原定时刻响一次
         ReminderScheduler.schedule(this, updated)
+        broadcastChanged()
 
-        val oldLabel = TimeFmt.summary(target.startAt, target.hasTime, null)
-        val newLabel = TimeFmt.summary(v.newStartAt, v.newHasTime, null)
+        val oldLabel = TimeFmt.summary(target.startAt, target.hasTime, target.location)
+        val newLabel = TimeFmt.summary(v.newStartAt, v.newHasTime, updated.location)
         val tail = if (v.meridiemGuessed) "（上下午是按原时间推的，你核一眼）" else ""
         CaptureLog.record(
             app, text, CaptureRecord.OUT_CREATED,
             "已把「${target.title}」从 $oldLabel 改到 $newLabel$tail"
+        )
+    }
+
+    /**
+     * 只换地点。
+     *
+     * 时间没动，所以不重排闹钟；数据库和系统日历由 [Repo.relocate] 更新。
+     * 已经挂在通知栏里的提醒正文会暂时显示旧地点 —— 为了一行地址重新响一次提醒，
+     * 比留着旧地址更打扰，下次编辑/重排时自然更新。
+     */
+    private suspend fun applyRelocate(app: String, text: String, v: Revise.Verdict.Relocate) {
+        val target = Repo.findReviseTarget(v.oldStartAt, text)
+        if (target == null) {
+            val asked = askReviseUser(text, v)
+            CaptureLog.record(
+                app, text,
+                if (asked) CaptureRecord.OUT_PENDING else CaptureRecord.OUT_SKIPPED,
+                if (asked) "像换地点，但没认准是哪条，已提示用户确认"
+                else "像换地点，但没找到对应的日程，没动数据"
+            )
+            return
+        }
+
+        if (target.location == v.newLocation) {
+            CaptureLog.record(app, text, CaptureRecord.OUT_SKIPPED, "地点和原日程一样，不用动")
+            return
+        }
+
+        val note = buildString {
+            append(target.note.orEmpty())
+            if (isNotEmpty()) append("\n\n")
+            append("【据通知改地点】").append(text)
+        }
+        val updated = Repo.relocate(target.id, v.newLocation, note) ?: return
+        broadcastChanged()
+        CaptureLog.record(
+            app, text, CaptureRecord.OUT_CREATED,
+            "已把「${target.title}」的地点从 ${target.location ?: "（未填）"} 改到 ${updated.location}"
         )
     }
 
@@ -340,10 +403,79 @@ class NotificationCaptureService : NotificationListenerService() {
         }
 
         Repo.revoke(target.id, "据通知：${text.take(80)}")
+        broadcastChanged()
         CaptureLog.record(
             app, text, CaptureRecord.OUT_PENDING,
             "「${target.title}」已标为取消并停掉提醒，去列表里确认要不要删"
         )
+    }
+
+    /**
+     * 信息不全时，问用户「改的是哪一条」。
+     *
+     * 返回是否真的发了通知：候选为空时不发 —— 用户点开只能看到空列表，
+     * 那比不提示更让人困惑。调用方据此决定日志写"已提示"还是"没动"。
+     */
+    private suspend fun askReviseUser(text: String, v: Revise.Verdict): Boolean {
+        if (!Revise.worthAsking(v)) return false
+
+        val oldStart: Long?
+        val newStart: Long?
+        val newHasTime: Boolean
+        val guessed: Boolean
+        val newLocation: String?
+        when (v) {
+            is Revise.Verdict.Move -> {
+                oldStart = v.oldStartAt
+                newStart = v.newStartAt
+                newHasTime = v.newHasTime
+                guessed = v.meridiemGuessed
+                newLocation = v.newLocation
+            }
+            is Revise.Verdict.Relocate -> {
+                oldStart = v.oldStartAt
+                newStart = null
+                newHasTime = true
+                guessed = false
+                newLocation = v.newLocation
+            }
+            is Revise.Verdict.Unclear -> {
+                oldStart = v.oldStartAt
+                newStart = null
+                newHasTime = true
+                guessed = false
+                newLocation = null
+            }
+            else -> return false
+        }
+
+        if (Repo.reviseCandidates(oldStart).isEmpty()) return false
+
+        Notifications.postReviseAsk(this, text, oldStart, newStart, newHasTime, guessed, newLocation)
+
+        // 应用内也留一张待办卡片：通知可能被划掉，卡片在主界面还能看到。
+        // 进程被杀就没了 —— 那时通知仍在，点通知照样能处理（4A 的取舍）。
+        ReviseInbox.add(
+            ReviseInbox.Item(
+                key = TextNorm.key(text).ifEmpty { text },
+                text = text,
+                oldStartAt = oldStart,
+                newStartAt = newStart,
+                newHasTime = newHasTime,
+                meridiemGuessed = guessed,
+                newLocation = newLocation
+            )
+        )
+        // 主界面正开着时让它立刻出现卡片，不用切出去再回来
+        broadcastChanged()
+        return true
+    }
+
+    /** 告诉正在前台的主界面：库里变了 / 有新待办，重绘一下 */
+    private fun broadcastChanged() {
+        runCatching {
+            sendBroadcast(Intent(NotifyAction.ACTION_DATA_CHANGED).setPackage(packageName))
+        }
     }
 
     /** 按可信度分档入库。返回落库的行 id（被去重/丢弃时返回 null） */

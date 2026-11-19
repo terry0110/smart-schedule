@@ -22,6 +22,18 @@ object NotificationIds {
     const val CAPTURE_SUMMARY_ID = 900_001
 
     /**
+     * 「改期没认准，需要你确认」通知的 id。
+     *
+     * 同样固定一个号：这只是一句"你回头看一眼"，不是每条都要处理的待办。
+     * 如果一条改期一个 id，一次群聊刷屏就能把通知栏塞满，重演 v1.22 的限流事故
+     * （muted=149/150，连到点提醒都被静音）。
+     */
+    const val REVISE_ASK_ID = 900_002
+
+    /** 改期确认通知的 PendingIntent requestCode。和通知 id 分属两个号段，别混用 */
+    const val REVISE_ASK_REQUEST = 910_001
+
+    /**
      * 待确认通知的偏移量，避开提醒通知的号段。
      * 单独暴露出来是为了让测试能固定这个契约。
      */

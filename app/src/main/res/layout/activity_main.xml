@@ -346,6 +346,59 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- ============ 改期待确认横幅 ============
+             和上面"待确认日程"是两件事：那边是新日程没把握，这边是已有日程的
+             改期/换地点没认准。文案必须能一眼区分，否则用户不知道点哪个。 -->
+        <LinearLayout
+            android:id="@+id/bannerRevise"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_warn_chip"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="11dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="11dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="↻"
+                android:textColor="@color/warn"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvReviseTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/warn"
+                    android:textSize="13.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvReviseDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:alpha="0.85"
+                    android:textColor="@color/warn"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- ============ 分类筛选 ============
              只影响列表显示，不写库。切走再回来保持当前筛选（进程内有效），
              重开应用回到"全部"—— 筛选是临时视角，不该变成持久设置。 -->

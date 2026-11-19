@@ -44,26 +44,48 @@ object Revise {
          * @param newStartAt 改成的新时间（已继承旧时间的日期）
          * @param newHasTime false 表示只说了改到哪天、没说几点，按全天处理
          * @param meridiemGuessed true 表示新时间只写了「3点」这种，上下午是按旧时间推的
+         * @param newLocation 同一句话里还换了地点（「改到 B 栋 301」）；没提就是 null
          */
         data class Move(
             val oldStartAt: Long?,
             val newStartAt: Long,
             val newHasTime: Boolean,
-            val meridiemGuessed: Boolean
+            val meridiemGuessed: Boolean,
+            val newLocation: String? = null
+        ) : Verdict
+
+        /**
+         * 只换地点，没提时间（「换到 B 栋 301 了」）。
+         *
+         * 单独一个类型而不是塞进 [Move]：Move 的前提是"有一个新时间"，
+         * 为了地点变更硬填一个 startAt 会让调用方分不清"时间真的没变"和"没解析出来"。
+         */
+        data class Relocate(
+            val oldStartAt: Long?,
+            val newLocation: String
         ) : Verdict
 
         /** 取消。旧时间为 null 时只能靠标题找 */
         data class Cancel(val oldStartAt: Long?) : Verdict
 
-        /** 看着像改期，但关键信息不全 —— 不动数据，只记一笔日志 */
-        data class Unclear(val why: String) : Verdict
+        /**
+         * 看着像改期，但关键信息不全 —— 不动数据。
+         *
+         * @param oldStartAt 原文「原定 …」里能抽出的旧时间；抽不出就是 null。
+         *                   带着它是为了让界面能把候选日程缩到那半小时里，
+         *                   而不是让用户在接下来两天里瞎猜。
+         */
+        data class Unclear(
+            val why: String,
+            val oldStartAt: Long? = null
+        ) : Verdict
     }
 
     /** 「原定 / 之前说的」这类对旧时间的引用 */
     private val RE_OLD_REF = Regex("(原定|原本|原来|原先|之前说的|之前定的|之前那个|前面说的|刚刚说的)")
 
-    /** 改期动词 */
-    private val RE_MOVE = Regex("(推迟|延期|延后|顺延|提前|提早|推前|改到|改在|改为|改成|调整到|调整至|挪到|挪至)")
+    /** 改期动词。带地点语气的「换到 / 移到 / 搬到 / 调到」也算 —— 具体是改时间还是改地点，由动词后的内容决定 */
+    private val RE_MOVE = Regex("(推迟|延期|延后|顺延|提前|提早|推前|改到|改在|改为|改成|调整到|调整至|挪到|挪至|换到|移到|搬到|调到)")
 
     /** 「不取消」「没取消」不算取消 */
     private val RE_CANCEL = Regex("(?<![不没别])(取消|不开了|不办了|不搞了|作废|撤销)")
@@ -73,6 +95,17 @@ object Revise {
 
     /** 片段里有没有「几点」的痕迹（用来区分「改到后天」和「改到后天五点」） */
     private val RE_HOUR_MARK = Regex("[0-9一二三四五六七八九十]\\s*[点时]")
+
+    /**
+     * 地点形态词。**不能只靠「在」判断** —— 「在图书馆开会」是正常日程，不是地点变更。
+     * 这里要求动词后面真的出现这些字，才认为它是一句换地点的话。
+     */
+    private val RE_PLACE_HINT = Regex("(楼|栋|座|室|馆|厅|场|区|园|院|层|食堂|宿舍|操场|线上|腾讯会议|钉钉)")
+
+    /** 地点片段里一旦出现这些，就说明是时间不是地点（「改到明天下午3点」） */
+    private val RE_TIME_IN_CHUNK = Regex(
+        "([0-9一二三四五六七八九十]\\s*[点时])|(今天|明天|后天|大后天|今晚|明早|明晚|上午|下午|中午|晚上|傍晚|凌晨|周[一二三四五六日天])"
+    )
 
     private val CN_DIGIT = mapOf(
         '一' to 1, '二' to 2, '三' to 3, '四' to 4, '五' to 5,
@@ -104,7 +137,7 @@ object Revise {
         // 顺序反了会把前者错判成取消，把用户一条日程直接标死。
         if (move != null) {
             val mv = detectMove(t, move.range, now)
-            if (mv is Verdict.Move) return mv
+            if (mv is Verdict.Move || mv is Verdict.Relocate) return mv
             if (cancel != null) {
                 return Verdict.Cancel(parseOld(t, cancel.range.first, now)?.dt?.let(::toMillis))
             }
@@ -119,28 +152,46 @@ object Revise {
     private fun detectMove(t: String, range: IntRange, now: LocalDateTime): Verdict {
         val oldParsed = parseOld(t, range.first, now)
         val oldStart = oldParsed?.dt
+        val oldMs = oldStart?.let(::toMillis)
 
         val newChunk = newChunkAfter(t, range.last)
-        if (newChunk.isBlank()) {
-            return Verdict.Unclear("有改期动词，但后面没有时间")
+        val parsed = if (newChunk.isBlank()) null else parseChunk(newChunk, now)
+        val loc = locationAfter(t, range.last)
+
+        // 地点优先：动词后面是一段地址时，不能因为解析器吐了个"全天/半天"就当时间改。
+        // 判据是片段里**没有任何时间词**（RE_TIME_IN_CHUNK），而不是解析结果是否为空 ——
+        // "B栋301" 里的 301 有可能被解析器当成某种时间，那种情况下改时间会酿成错案。
+        val looksLikeTime = parsed != null && parsed.hasTime &&
+            RE_TIME_IN_CHUNK.containsMatchIn(newChunk)
+        if (loc != null && !looksLikeTime) {
+            return Verdict.Relocate(oldMs, loc)
         }
 
-        val parsed = parseChunk(newChunk, now)
-            ?: return Verdict.Unclear("改期时间解析不出来：$newChunk")
+        if (newChunk.isBlank()) {
+            return Verdict.Unclear("有改期动词，但后面没有时间", oldMs)
+        }
+
+        if (parsed == null) {
+            return Verdict.Unclear("改期时间解析不出来：$newChunk", oldMs)
+        }
 
         // 「改到后天五点」里钟点没解析出来 —— 解析器漏了，不能当成"改到后天全天"
         if (!parsed.hasTime && RE_HOUR_MARK.containsMatchIn(newChunk)) {
-            return Verdict.Unclear("改期时间里有钟点但没解析出来：$newChunk")
+            return Verdict.Unclear(
+                "改期时间里有钟点但没解析出来：$newChunk",
+                oldMs
+            )
         }
 
         val withDate = inheritDate(parsed, oldStart)
 
         if (!parsed.hasTime) {
             return Verdict.Move(
-                oldStartAt = oldStart?.let(::toMillis),
+                oldStartAt = oldMs,
                 newStartAt = toMillis(withDate),
                 newHasTime = false,
-                meridiemGuessed = false
+                meridiemGuessed = false,
+                newLocation = loc
             )
         }
 
@@ -151,11 +202,37 @@ object Revise {
         }
 
         return Verdict.Move(
-            oldStartAt = oldStart?.let(::toMillis),
+            oldStartAt = oldMs,
             newStartAt = toMillis(fixed.first),
             newHasTime = true,
-            meridiemGuessed = fixed.second
+            meridiemGuessed = fixed.second,
+            newLocation = loc
         )
+    }
+
+    /**
+     * 动词后面那一段如果长得像地址，返回它。
+     *
+     * 三条约束，少一条都会误伤：
+     * 1. **必须出现地点形态词**（楼/栋/馆/室…）。光有"在"不算 ——
+     *    「在图书馆开会」是正常日程，不是地点变更。
+     * 2. **不能出现时间词**。否则「改到明天下午3点」会被抽成地点「明天下午3点」。
+     * 3. 长度 ≤30、在第一个标点处截断，并且剥掉句尾语气词（"换到B栋301了"）。
+     */
+    private fun locationAfter(text: String, moveEnd: Int): String? {
+        val chunk = text.substring(moveEnd + 1)
+            .trimStart('至', '到', '为', '成', '在', '：', ':', ' ', '　')
+            .substringBefore('，').substringBefore('。')
+            .substringBefore('；').substringBefore(';')
+            .substringBefore('！').substringBefore('!')
+            .trim()
+            .trimEnd('了', '吧', '哦', '呢', '啊')
+            .trim()
+
+        if (chunk.isEmpty() || chunk.length > 30) return null
+        if (RE_TIME_IN_CHUNK.containsMatchIn(chunk)) return null
+        if (!RE_PLACE_HINT.containsMatchIn(chunk)) return null
+        return chunk
     }
 
     // ---------------- 选哪一条 ----------------
@@ -184,6 +261,26 @@ object Revise {
             TextNorm.key(e.title).toSet().any { it in hint }
         }
         return hit.singleOrNull()
+    }
+
+    /**
+     * 信息不全时，值不值得发通知打扰用户。
+     *
+     * 「原定四点那个会推迟了」值得问：用户知道是哪件事，只是没说新时间，
+     * 点进来手动补一下就行。
+     *
+     * 「会议提前了」不值得：连对象都没有，问了他也无从选起。这类只记日志 ——
+     * 通知栏里每来一句含"提前/取消"的闲聊就弹一次，比漏改更让人烦。
+     *
+     * 注意：Move 只在**没匹配到目标**时才会被调用（见 NotificationCaptureService），
+     * 所以这里返回 true 不等于"每条改期都要问"。
+     */
+    fun worthAsking(v: Verdict): Boolean = when (v) {
+        is Verdict.Move -> true
+        is Verdict.Relocate -> true
+        is Verdict.Unclear -> v.oldStartAt != null
+        is Verdict.Cancel -> false
+        Verdict.None -> false
     }
 
     // ---------------- 片段切分 ----------------

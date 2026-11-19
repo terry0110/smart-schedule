@@ -277,6 +277,64 @@ object Notifications {
     }
 
     /**
+     * 地点变了，把**还挂在通知栏里**的到点提醒同步成新地址。
+     *
+     * 只更新、不重发：
+     * - 用户已经划掉的提醒不复活（划掉 = 处理过了，再弹一次就是打扰）；
+     * - 还没到点的提醒没有通知可更新，下次 [postRemind] 自然用新地点；
+     * - `setSilent` + `setOnlyAlertOnce`：这是一次内容更正，不是第二次提醒；
+     * - **不挂全屏意图**：这条已经响过一次，不能因为改了个地址再打断用户一次。
+     */
+    fun refreshRemind(c: Context, event: Event) {
+        if (!hasPermission(c)) return
+
+        // getActiveNotifications 只能看到本应用自己的，够用；
+        // 个别 ROM 返回不全时最多是"这次没刷新"，不会误伤别的通知
+        val showing = runCatching {
+            NotificationManagerCompat.from(c).activeNotifications.any {
+                it.id == NotificationIds.remind(event.id)
+            }
+        }.getOrDefault(false)
+        if (!showing) return
+
+        val style = RemindStyle.resolve(event.remindStyle, Prefs.remindStyle)
+        val channel = when {
+            style.quiet -> CH_REMIND_QUIET
+            style.vibrateOnly -> CH_REMIND_VIBRATE
+            else -> CH_REMIND
+        }
+        val body = TimeFmt.summary(event.startAt, event.hasTime, event.location)
+
+        val n = NotificationCompat.Builder(c, channel)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(event.title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(
+                when {
+                    style.quiet -> NotificationCompat.PRIORITY_LOW
+                    style.vibrateOnly -> NotificationCompat.PRIORITY_HIGH
+                    else -> NotificationCompat.PRIORITY_MAX
+                }
+            )
+            .setCategory(
+                if (style.quiet || style.vibrateOnly) NotificationCompat.CATEGORY_REMINDER
+                else NotificationCompat.CATEGORY_ALARM
+            )
+            .setAutoCancel(true)
+            .setContentIntent(openAppIntent(c, event.id.toInt()))
+            .addAction(0, "知道了", actionIntent(c, event.id, NotifyAction.ACTION_DONE, 3))
+            .addAction(0, "稍后 10 分钟", actionIntent(c, event.id, NotifyAction.ACTION_SNOOZE, 4))
+            .setTimeoutAfter(60 * 60 * 1000L)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(lockScreenSafe(c, "有一项日程到点了"))
+            .build()
+        notifySafely(c, NotificationIds.remind(event.id), n)
+    }
+
+    /**
      * 自动建日程后的回执。
      *
      * **所有回执共用一条通知**，只更新内容。原来是一条日程一个通知 id，
@@ -344,6 +402,79 @@ object Notifications {
     /** 撤掉某条日程的待确认通知 */
     fun clearPending(c: Context, eventId: Long) {
         runCatching { NotificationManagerCompat.from(c).cancel(pendingNotiId(eventId)) }
+    }
+
+    /**
+     * 「这句改期没认准，点开告诉我是哪一条」。
+     *
+     * 只在两种情况下发：
+     * 1. 新时间有了，但时间窗里有不止一条（或者一条都对不上）；
+     * 2. 原文写了「原定…」，但新时间压根没解析出来。
+     *
+     * 信息完整时在通知监听里就直接改了，不会走到这里 —— 这是一次询问，
+     * 不是一条待办，所以 autoCancel：点开就消失，别在栏里越积越多。
+     *
+     * 正文与正文标题都可能带日程内容，锁屏用脱敏版兜住。
+     */
+    fun postReviseAsk(
+        c: Context,
+        text: String,
+        oldStartAt: Long?,
+        newStartAt: Long?,
+        newHasTime: Boolean,
+        meridiemGuessed: Boolean,
+        newLocation: String? = null
+    ) {
+        if (!hasPermission(c)) return
+        val body = when {
+            newStartAt != null ->
+                "改到 ${TimeFmt.summary(newStartAt, newHasTime, newLocation)}？点开确认改的是哪一条"
+            newLocation != null ->
+                "换到 $newLocation？点开确认改的是哪一条"
+            else -> "通知里没说清新时间，点开选一条手动改"
+        }
+        val intent = Intent(c, com.terry.smartschedule.ui.MainActivity::class.java).apply {
+            action = NotifyAction.ACTION_REVISE_CONFIRM
+            // CLEAR_TOP + SINGLE_TOP：应用已经开着（哪怕正在设置页）时回到主界面并走
+            // onNewIntent，而不是再叠一个 MainActivity 实例。
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(NotifyAction.EXTRA_REVISE_TEXT, text.take(200))
+            putExtra(NotifyAction.EXTRA_REVISE_NEW_START, newStartAt ?: -1L)
+            putExtra(NotifyAction.EXTRA_REVISE_NEW_HAS_TIME, newHasTime)
+            putExtra(NotifyAction.EXTRA_REVISE_OLD_START, oldStartAt ?: -1L)
+            putExtra(NotifyAction.EXTRA_REVISE_MERIDIEM, meridiemGuessed)
+            if (newLocation != null) {
+                putExtra(NotifyAction.EXTRA_REVISE_NEW_LOCATION, newLocation)
+            }
+        }
+        val pi = PendingIntent.getActivity(
+            c,
+            NotificationIds.REVISE_ASK_REQUEST,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = NotificationCompat.Builder(c, CH_INFO)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle("有一条改期需要确认")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            // 固定 id + 只响一次：群通知重渲染 / 服务重启重放时，同一条询问
+            // 不应该反复出声，内容更新就够了
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pi)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(lockScreenSafe(c, "有一条改期需要你确认"))
+            .build()
+        notifySafely(c, NotificationIds.REVISE_ASK_ID, n)
+    }
+
+    /** 用户点开处理了，或者已经手动改过，撤掉这条询问 */
+    fun clearReviseAsk(c: Context) {
+        runCatching { NotificationManagerCompat.from(c).cancel(NotificationIds.REVISE_ASK_ID) }
     }
 
     /**
