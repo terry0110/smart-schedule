@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      亚克力风格是浅色的：冷白底 + 彩色光斑 + 半透明白面板。
+      所以状态栏图标必须切成深色（windowLightStatusBar = true），
+      否则白图标压在浅色磨砂条上等于看不见。
+
+      edge-to-edge 说明：targetSdk 35 在 Android 15 上强制开启，
+      statusBarColor 已失效，真正把内容顶下来的是 Insets.kt。
+      这里只负责把窗口底色设成和页面一致，避免启动闪白。
+    -->
+
+    <!-- 公共部分。单独抽出来，是为了让 values-v27 能只加一条 API 27 才有的属性 -->
+    <style name="Theme.SmartSchedule.Base" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/brand_light</item>
+        <item name="colorOnPrimaryContainer">@color/brand_dark</item>
+        <item name="colorSecondary">@color/brand</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/stroke</item>
+        <item name="android:windowBackground">@drawable/bg_acryl_page</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- 浅色背景 → 状态栏用深色图标 -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.SmartSchedule" parent="Theme.SmartSchedule.Base" />
+
+    <!--
+      全屏提醒页的主题。深色底 → 状态栏图标必须切成浅色，
+      否则黑图标压在深蓝上等于没有。
+      单独一个主题而不是在代码里改窗口：主题在窗口创建时就生效，
+      代码里改要晚一帧，那一帧会闪白。
+    -->
+    <style name="Theme.SmartSchedule.Reminder" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/bg_remind</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Activity</item>
+    </style>
+
+    <!--
+      输入框：磨砂面上的浅槽。
+      不用描边（Material 默认那条线在玻璃上很脏），靠半透明白色填充区分层级。
+    -->
+    <style name="Input.NoOutline" parent="Widget.Material3.TextInputLayout.FilledBox">
+        <item name="boxBackgroundColor">@color/glass_inset</item>
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">14dp</item>
+        <item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="boxStrokeWidth">0dp</item>
+        <item name="boxStrokeWidthFocused">0dp</item>
+        <item name="hintTextColor">@color/brand_dark</item>
+    </style>
+
+    <!--
+      玻璃面板上的描边按钮。
+      Material 默认描边用 colorOutline，在接近白的磨砂面上等于没有边，
+      所以强制换成低透明度的品牌绿。
+    -->
+    <style name="Btn.Glass" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="cornerRadius">12dp</item>
+        <item name="strokeColor">#3D2563EB</item>
+        <item name="android:textColor">@color/brand_dark</item>
+        <item name="android:textSize">13.5sp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:minHeight">44dp</item>
+    </style>
+
+    <!-- 分组小标题：小字号 + 字距拉开，比加粗大字更像"标签" -->
+    <style name="SectionLabel">
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:textSize">11.5sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.09</item>
+    </style>
+
+</resources>

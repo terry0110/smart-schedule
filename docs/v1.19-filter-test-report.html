@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>筛选规则实测报告 · 智能日程 v1.19</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --line: #e6e8ec;
+    --text: #1a1d23; --muted: #62676f; --faint: #8b9098;
+    --ok: #15803d; --okbg: #f0fdf4; --okline: #bbf7d0;
+    --bad: #b91c1c; --badbg: #fef2f2; --badline: #fecaca;
+    --warn: #a16207; --warnbg: #fffbeb; --warnline: #fde68a;
+    --blue: #1d4ed8; --bluebg: #eff6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7; font-size: 15px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  h2 { font-size: 18px; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  p { margin: 10px 0; }
+  code {
+    background: #f1f2f4; padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px;
+  }
+  pre {
+    background: #1e2228; color: #e6e8ec; padding: 14px 16px; border-radius: 10px;
+    overflow-x: auto; font-size: 13px; line-height: 1.6;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12.5px; background: #fafbfc; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+  .tag.ok { color: var(--ok); background: var(--okbg); border: 1px solid var(--okline); }
+  .tag.bad { color: var(--bad); background: var(--badbg); border: 1px solid var(--badline); }
+  .tag.warn { color: var(--warn); background: var(--warnbg); border: 1px solid var(--warnline); }
+  .note { border-left: 3px solid var(--blue); background: var(--bluebg); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .note.bad { border-color: var(--bad); background: var(--badbg); }
+  .note.warn { border-color: var(--warn); background: var(--warnbg); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stat .n { font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .num { color: var(--faint); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>筛选规则实测报告</h1>
+  <div class="sub">智能日程 v1.19 · Android 9（API 28）模拟器 · 2026-10-24</div>
+
+  <p>
+    20 条用例，覆盖「该建 / 该拦」的每个分支。<strong>该建的 6 条全建了，该拦的 14 条全拦了，
+    没有一条误判。</strong>每条都跑在真实的通知管道上 —— 从发通知、系统回调、筛选、解析到落库，
+    不是单元测试里的函数调用。
+  </p>
+
+  <div class="grid">
+    <div class="stat"><div class="n">20</div><div class="l">端到端用例</div></div>
+    <div class="stat"><div class="n">6 / 6</div><div class="l">该建的都建了</div></div>
+    <div class="stat"><div class="n">14 / 14</div><div class="l">该拦的都拦了</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">误判</div></div>
+  </div>
+
+  <h2>一、怎么造出"来自微信"的通知</h2>
+
+  <p>
+    这里有个绕不开的坎：App 判断来源用的是 <code>StatusBarNotification.packageName</code>，
+    那个值由系统按安装包填，改不了。想验证「只分析微信 / QQ」这条规则，就必须让通知的包名
+    真的是 <code>com.tencent.mm</code>。
+  </p>
+
+  <p>
+    所以写了一个极小的通知模拟器（<code>tools/notify-sim/</code>，纯 Java、零依赖），
+    <strong>打包时把 <code>applicationId</code> 设成 <code>com.tencent.mm</code></strong>，
+    再出一份 <code>com.example.notifysim</code> 的变体当对照组。测试语料的中文直接硬编码在代码里，
+    用 <code>--ei case N</code> 选第几条 —— 走 shell 传中文会被编码搞坏。
+  </p>
+
+<pre><code>adb shell am start -n com.tencent.mm/com.terry.notifysim.PostActivity --ei case 3
+adb shell am start -n com.example.notifysim/com.terry.notifysim.PostActivity --ei case 20</code></pre>
+
+  <div class="note warn">
+    <strong>两台设备上的实际情况：</strong>模拟器里已经装了<strong>真 QQ 9.3.35</strong>（今天 09:40 装的），
+    所以测试包只能用微信的包名，避开了 QQ 避免覆盖。测完两个测试包都已卸载，
+    真 QQ 没动过。
+  </div>
+
+  <h2>二、用例与结果</h2>
+
+  <h3>该建出来的（6 条，全对）</h3>
+  <table>
+    <tr><th>#</th><th>通知内容</th><th>预期</th><th>实际结果</th><th></th></tr>
+    <tr>
+      <td class="num">1</td>
+      <td>群名 <code>12.31</code> ／ 正文「明天下午3点开会」</td>
+      <td>10月25日 15:00</td>
+      <td>10月25日 15:00，标题「开会」</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">2</td>
+      <td>群名 <code>12.31</code> ／ 群聊「张三：后天上午9点在图书馆三楼开会」</td>
+      <td>10月26日 09:00</td>
+      <td>10月26日 09:00，地点「图书馆三楼」</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">3</td>
+      <td>会话名 <code>always online(2条新消息)</code> ／ 正文「宣传部将于10月25日晚上18:30开展培训」</td>
+      <td>10月25日 18:30，标题来自正文</td>
+      <td>10月25日 18:30，标题「宣传部开展培训，请准时参加」</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">4</td>
+      <td>「文件传输助手」／「11月3日下午<strong>两点半</strong>在行政楼302交材料」</td>
+      <td>11月3日 14:30</td>
+      <td>11月3日 14:30</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">5</td>
+      <td>「张三」／「今晚8点线上会议，地点：腾讯会议」</td>
+      <td>今天 20:00，地点腾讯会议</td>
+      <td>10月24日 20:00，地点「腾讯会议」</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">6</td>
+      <td>「李四」／「明天下午3点」（只有时间，没写要做什么）</td>
+      <td>10月25日 15:00</td>
+      <td>10月25日 15:00</td>
+      <td><span class="tag ok">通过</span></td>
+    </tr>
+  </table>
+
+  <h3>该拦住的（14 条，全对）</h3>
+  <table>
+    <tr><th>#</th><th>通知内容</th><th>日志里的实际原因</th><th></th></tr>
+    <tr>
+      <td class="num">7</td><td>群名 <code>12.31</code> ／「哈哈哈」</td>
+      <td>文本太短（3 字）</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">8</td><td><code>12.31(3条新消息)</code> ／「今天天气不错」</td>
+      <td>不含任何时间线索</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">9</td><td>群名 <code>12.31</code> ／ 群聊「李四：哈哈哈」「王五：收到收到」</td>
+      <td>看懂了是条日程，但没找到可用的日期时间</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">10</td><td>「腾讯客服」／「您本月已使用流量8.5GB，剩余1.5GB，超出部分按0.29元/MB计费」</td>
+      <td>文件 / 系统 / 资费类通知</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">11</td><td>「王者荣耀」／「王者荣耀2026周年庆，10月24日登录游戏领好礼！【登录就送】」</td>
+      <td>文件 / 系统 / 资费类通知（营销词）</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">12</td><td>「文件传输助手」／「smart-schedule-v1.8-debug.apk.1 已保存至"文件管理/安装包"」</td>
+      <td>文件 / 系统 / 资费类通知</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">13</td><td>「12.31lyd」／「今天天气不错」</td>
+      <td>不含任何时间线索</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">14</td><td>「阿伟」／「今天天气不错」</td>
+      <td>不含任何时间线索</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">15</td><td>标题「明天下午3点开会」／ 正文为空</td>
+      <td>文本太短（0 字）</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">16</td><td><strong>标题</strong>「明天下午3点开会」／ 正文「收到请回复」</td>
+      <td>不含任何时间线索：收到请回复</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">17</td><td><strong>标题</strong>「10月25日 部门会议 15:00」／ 正文「好的收到」</td>
+      <td>不含任何时间线索：好的收到</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">18</td><td><strong>群名</strong> <code>12.31</code> ／ 正文「稍后再说吧」</td>
+      <td>不含任何时间线索：稍后再说吧</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">19</td><td>与 #1 完全相同的通知再发一次</td>
+      <td>已经有一条一样的日程了</td><td><span class="tag ok">通过</span></td>
+    </tr>
+    <tr>
+      <td class="num">20</td><td>#1 的内容，但包名换成 <code>com.example.notifysim</code></td>
+      <td>不是微信/QQ，不分析（当前只处理 微信、QQ、TIM）</td><td><span class="tag ok">通过</span></td>
+    </tr>
+  </table>
+
+  <h2>三、三个关键验证点</h2>
+
+  <h3>1. 标题真的不再参与识别了</h3>
+  <p>
+    这是 v1.19 的核心改动，也是最容易"以为改了其实没改"的地方。#16 #17 #18 三条的标题里
+    <strong>日期时间俱全</strong>，正文都够长、只是没有时间：
+  </p>
+  <ul>
+    <li>标题「明天下午3点开会」+ 正文「收到请回复」 → 拦</li>
+    <li>标题「10月25日 部门会议 15:00」+ 正文「好的收到」 → 拦</li>
+    <li>群名「12.31」+ 正文「稍后再说吧」 → 拦</li>
+  </ul>
+  <p>
+    任何一条只要标题的日期还被使用，就一定会建成日程。三条全拦，说明
+    <code>SegmentPicker.pick()</code> 拿不到标题这件事，在真实管道上确实生效了。
+  </p>
+
+  <div class="note">
+    <strong>测试过程里踩了自己的坑：</strong>最早这几条的正文写的是空字符串，
+    结果在「文本太短」那一步就被拦了 —— 通过了，但<strong>根本没走到标题逻辑</strong>。
+    这种"通过得不明不白"最危险。改成正文非空但仍无时间之后，才真正测到。
+  </div>
+
+  <h3>2. 应用白名单是硬拦截</h3>
+  <p>
+    #20 的内容和 #1 一模一样（完全该建），唯一的区别是包名不在白名单里。
+    它被拦在<strong>第一次判断</strong>：连正则都没跑。这说明"只分析微信/QQ"不是靠内容过滤
+    碰巧拦住的，而是真的在入口就挡了。
+  </p>
+
+  <h3>3. 去重两层都生效</h3>
+  <p>
+    #19 与 #1 内容完全相同，日志给的是「已经有一条一样的日程了」（<code>Repo.existsSimilar</code>）。
+    短时间内的重复还会更早被内存去重拦下（「10 分钟内处理过同样内容」）。
+  </p>
+
+  <h2>四、测出来的一个问题（未修）</h2>
+
+  <div class="note bad">
+    <strong>群聊多消息时，标题会把几条消息拼在一起。</strong><br>
+    #2 的两条消息「张三：后天上午9点在图书馆三楼开会」和「李四：收到」，
+    建出来的标题是 <code>开会李四:收到</code>。<br><br>
+    日期、时间、地点都对，只是标题不干净。原因：标题生成时把所有候选段拼起来，
+    而 <code>RE_SPEAKER</code> 只剥掉了第一个「张三：」前缀，后面的「李四：」被当成了内容。<br><br>
+    微信/QQ 的群通知经常带多条消息，所以这个会<strong>比较常见</strong>。
+    没顺手改是因为它牵动所有日程的标题生成，属于另一件事 —— 要改的话建议单独一轮，
+    先定清楚"群聊标题取哪一条"（第一条？带事件词的那条？最长的那条？）。
+  </div>
+
+  <h3>另外两个观察</h3>
+  <ul>
+    <li><strong>#9 的日志措辞</strong>：「看懂了是条日程，但没找到可用的日期时间」—— 这是
+      <code>looksLikeSchedule</code> 判为像日程、而解析器没解析出来的分支，结论正确（拦了），
+      但说明"收到收到"这种词被当成了日程线索，属于粗筛偏松，不影响结果。</li>
+    <li><strong>#6 的标题</strong>「明天下午3」：正文只有时间没有事件，标题只能截取残渣。
+      这和"正文位置不过滤纯时间"是同一个取舍 —— 宁可标题难看，也不漏掉真实的待办。</li>
+  </ul>
+
+  <h2>五、环境与复现</h2>
+
+  <div class="card">
+    <table>
+      <tr><th style="width:130px">项</th><th>值</th></tr>
+      <tr><td>设备</td><td><code>emulator-5554</code>，Android 9 / API 28</td></tr>
+      <tr><td>被测包</td><td><code>com.terry.smartschedule</code> v1.19（versionCode 19）</td></tr>
+      <tr><td>通知来源</td><td><code>com.tencent.mm</code>（测试包，伪装包名）+ <code>com.example.notifysim</code>（对照组）</td></tr>
+      <tr><td>关键开关</td><td>诊断模式开、记录原文开（测完已关）、监听总开关开</td></tr>
+      <tr><td>数据状态</td><td>测试前 <code>pm clear</code> 清空；测完多选删除清空</td></tr>
+    </table>
+  </div>
+
+  <h3>重新跑一遍</h3>
+<pre><code># 1. 构建两个变体
+./gradlew -p tools/notify-sim assembleFakewxDebug assembleOtherDebug
+
+# 2. 安装（注意：fakewx 的包名就是 com.tencent.mm，别和真微信同设备）
+adb install -r tools/notify-sim/app/build/outputs/apk/fakewx/debug/app-fakewx-debug.apk
+adb install -r tools/notify-sim/app/build/outputs/apk/other/debug/app-other-debug.apk
+
+# 3. 逐条触发（用例定义见 Cases.java）
+for i in $(seq 1 20); do
+  adb shell am start -n com.tencent.mm/com.terry.notifysim.PostActivity --ei case $i
+  sleep 2
+done
+
+# 4. 看结果：App 列表里应该正好出现 6 条；
+#    想看拦截原因就进 设置 → 查看最近的通知处理记录（先开诊断模式）
+
+# 5. 清理
+adb uninstall com.tencent.mm
+adb uninstall com.example.notifysim</code></pre>
+
+  <div class="note warn">
+    <strong>卸载测试包之前别装真微信。</strong>它的包名就是 <code>com.tencent.mm</code>，
+    留着会和真微信冲突。本轮测试后已卸载，模拟器上只剩真的 QQ。
+  </div>
+
+  <h2>六、结论</h2>
+  <p>
+    筛选链路在真实通知管道上全部符合预期：<strong>6 条该建的都建对了日期，
+    14 条该拦的一条都没漏</strong>。标题不参与、白名单硬拦截、两层去重这三件事都有独立证据，
+    不是靠"看起来没出问题"推断的。
+  </p>
+  <p>
+    唯一发现的瑕疵是群聊多消息时标题会拼接（<code>开会李四:收到</code>），
+    不影响日期和是否建日程，但观感不好 —— 修它需要先定标题的取舍规则，单独一轮处理。
+  </p>
+
+</div>
+</body>
+</html>

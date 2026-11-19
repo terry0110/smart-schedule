@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能日程 v1.3 测试报告</title>
+<style>
+  :root{
+    --bg:#f4f7fc; --panel:#ffffff; --ink:#0f172a; --ink2:#556277; --ink3:#8a95a8;
+    --line:#e3e9f2; --blue:#2563eb; --blue-bg:#eff5ff;
+    --red:#b42318; --red-bg:#fef3f2; --amber:#b45309; --amber-bg:#fffaeb;
+    --green:#067647; --green-bg:#ecfdf3; --gray-bg:#f1f4f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.7 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:36px 22px 64px}
+  header{margin-bottom:26px}
+  h1{font-size:25px;margin:0 0 6px;letter-spacing:.2px}
+  .sub{color:var(--ink2);font-size:13px}
+  .meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:4px 12px;font-size:12px;color:var(--ink2)}
+  .pill b{color:var(--ink);font-weight:600}
+  h2{font-size:16px;margin:34px 0 12px;padding-left:10px;border-left:3px solid var(--blue)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px 20px;margin-bottom:14px}
+  .card h3{margin:0 0 4px;font-size:14.5px;display:flex;align-items:center;gap:9px}
+  .tag{font-size:11px;padding:1px 8px;border-radius:6px;font-weight:600;white-space:nowrap}
+  .t-p0{background:var(--red-bg);color:var(--red);border:1px solid #fbd5d0}
+  .t-p1{background:var(--amber-bg);color:var(--amber);border:1px solid #fce7bd}
+  .t-p2{background:var(--gray-bg);color:var(--ink2);border:1px solid var(--line)}
+  .t-fix{background:var(--green-bg);color:var(--green);border:1px solid #c7ecd8}
+  .row{display:grid;grid-template-columns:64px 1fr;gap:10px;margin-top:10px;font-size:13.2px}
+  .row dt{color:var(--ink3);font-size:12px}
+  .row dd{margin:0;color:var(--ink)}
+  code{background:var(--gray-bg);border-radius:4px;padding:1px 5px;font-size:12.5px;
+    font-family:ui-monospace,Consolas,monospace;color:#26324a}
+  .before{color:var(--red)}
+  .after{color:var(--green)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--gray-bg);font-weight:600;font-size:12.5px;color:var(--ink2)}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--green);font-weight:600}
+  .no{color:var(--red);font-weight:600}
+  ul{margin:8px 0 0;padding-left:20px;color:var(--ink2);font-size:13.2px}
+  li{margin:4px 0}
+  .note{background:var(--blue-bg);border:1px solid #d3e2fb;border-radius:12px;
+    padding:14px 16px;font-size:13px;color:#1e40af;margin-top:14px}
+  footer{margin-top:40px;color:var(--ink3);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>智能日程 v1.3 测试报告</h1>
+  <div class="sub">主动找问题：代码审查 + 畸形输入 fuzz + 探针表 + 静态检查，四条线并行</div>
+  <div class="meta">
+    <span class="pill">单测 <b>49 / 49 通过</b></span>
+    <span class="pill">lint <b>0 error</b> / 34 warning</span>
+    <span class="pill">查出问题 <b>14 个</b></span>
+    <span class="pill">已修 <b>11 个</b></span>
+    <span class="pill">保留 <b>3 个</b>（有原因）</span>
+  </div>
+</header>
+
+<h2>怎么测的</h2>
+<div class="card">
+  <ul>
+    <li><b>读代码</b>：把监听链路、保活、数据层、大模型解析全过一遍，盯状态机和异常路径。</li>
+    <li><b>畸形输入压测</b>：2000 条随机生成文本 + 病态串（5000 个 <code>1</code>、<code>1点</code>×2000、<code>【】</code>×2000），要求不抛异常、不卡死（每次 &lt; 2s，实测都在 10ms 内）。</li>
+    <li><b>探针表</b>：40 条真实语气的句子跑一遍，把 <code>日期来源 / 置信度 / 标题 / 地点</code> 列成表格人眼过——这一步抓到的错误比断言多得多。</li>
+    <li><b>静态检查</b>：lint 分类看，不只看 error 数量。</li>
+  </ul>
+</div>
+
+<h2>P0 · 直接影响使用</h2>
+
+<div class="card">
+  <h3><span class="tag t-p0">P0</span>中文数字时间完全不识别<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd><span class="before">「下午三点到五点值班」→ 整条解析失败，返回 null</span></dd></div>
+  <div class="row"><dt>根因</dt><dd>时间正则只写了 <code>\d{1,2}</code>，只认阿拉伯数字。"三点""两点半""八点"一个都不认。</dd></div>
+  <div class="row"><dt>影响</dt><dd>中文群通知里"下午三点"比"下午3点"还常见。这是"识别不到通知"的主要来源之一。</dd></div>
+  <div class="row"><dt>修法</dt><dd>加 <code>RE_CN_TIME_CN</code> 中文数字时间正则，复用已有的 <code>cnToInt</code>（支持 十一 / 二十三）。加 <code>hasTimeContext()</code> 上下文校验，避免把"一点小事"当成 1 点。</dd></div>
+  <div class="row"><dt>验证</dt><dd><span class="after">「明天下午三点半在体育馆集合」→ 15:30，85 分，自动入库</span></dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p0">P0</span>大模型兜底会建出两条重复日程<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd>开了大模型兜底后，同一条通知在列表里出现两条日程。</dd></div>
+  <div class="row"><dt>根因</dt><dd>本地结果先 <code>insert</code> 一条"防止网络失败丢数据"，大模型结果回来后又 <code>insert</code> 一条。<br>
+    本该由 <code>existsSimilar</code> 挡住，但它按<b>标题完全相等</b> + 时间 ±5 分钟判断——大模型会改写标题（"开会"→"部门例会"），所以挡不住。</dd></div>
+  <div class="row"><dt>修法</dt><dd><code>persist()</code> 改为返回行 id；大模型结果更好时用 <code>replaceId</code> <b>原地 update</b> 那一行，并先 <code>ReminderScheduler.cancel</code> 撤掉旧提醒再按新时间重排。</dd></div>
+  <div class="row"><dt>验证</dt><dd>代码路径审查 + 编译通过；无网络环境，未做真机联调（见文末）。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p0">P0</span>通知回调没有异常保护<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd>偶发"过一阵子就再也收不到通知了"，重启手机才好。</dd></div>
+  <div class="row"><dt>根因</dt><dd><code>onNotificationPosted</code> 里直接跑正则和时间解析，没有任何 try/catch。通知正文来自任意第三方应用，内容不可控；一次异常抛出去，系统会把这个 <code>NotificationListenerService</code> 判定为异常，之后可能不再回调。</dd></div>
+  <div class="row"><dt>修法</dt><dd>入口包 <code>try/catch Throwable</code>，异常写进抓取日志（"处理通知时出错：XXX"），服务继续活着。</dd></div>
+  <div class="row"><dt>验证</dt><dd>fuzz 2000 条随机文本 + 病态串，解析器本身已确认不抛异常，这层是兜底。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p0">P0</span>取消类通知被建成日程<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd><span class="before">「明天不开了」→ 建出一条标题为"不开了"的日程</span>，挂在待确认里。</dd></div>
+  <div class="row"><dt>根因</dt><dd>解析器只管抽时间，完全没管语义。</dd></div>
+  <div class="row"><dt>修法</dt><dd>加 <code>isCancellationNotice()</code>：命中"取消/作废/停办/不开了"等词直接返回 null。<br>
+    关键分寸：如果同时出现<b>变更词</b>（改到 / 推迟到 / 延期 / 顺延），说明是"改时间"而不是取消，"取消原定时间，改到后天3点"仍要解析出后天3点。</dd></div>
+  <div class="row"><dt>验证</dt><dd>5 条取消句式全部返回 null；「会议改到 10月25日 16:30」仍正确解析成 16:30。</dd></div>
+</div>
+
+<h2>P1 · 明显影响体验</h2>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>「本周五」被报成"没说清是哪一周"<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd><span class="before">「本周五开会」弹警告："原文只写了「本周五」，没说清是哪一周"</span>——用户明明写得很明确。</dd></div>
+  <div class="row"><dt>根因</dt><dd><code>resolveWeekday()</code> 只对"下下/下/上"做了专门分支，"本/这"落到通用分支；通用分支里 <code>delta == 0</code>（今天就是周五）被当成"有歧义"。</dd></div>
+  <div class="row"><dt>修法</dt><dd>给"本/这"单开分支（明确指定本周，不推下周、不算 vague）；通用分支的歧义判定改成 <code>delta &gt;= 4</code>——只有"今天说周二"这种情况才真有歧义。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>地点抽到了时间残渣<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd><span class="before">「明天9点到12点在体育馆体检」→ 地点 = "12点在体育馆"</span><br>
+    <span class="before">「会议改到16:30」→ 地点 = "16:30"</span></dd></div>
+  <div class="row"><dt>根因</dt><dd>地点正则用"在/到"作前缀，"9点<b>到</b>12点在体育馆"里的第一个"到"被当成了地点前缀。</dd></div>
+  <div class="row"><dt>修法</dt><dd><code>cleanLoc()</code> 开头循环剥前导时间片段（<code>12点</code> / <code>16:30</code> / <code>9点到12点</code>，阿拉伯数字和中文数字都覆盖）和前导介词；剥完为空就判定"整个候选都是时间，不是地点"。<br>
+    特意没有用"以数字开头就否决"——那会误杀"302会议室""3号楼"。</dd></div>
+  <div class="row"><dt>验证</dt><dd>上面两例分别得到 <span class="after">"体育馆"</span> 和 <span class="after">无地点</span>。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>关了保活开关，常驻提示还在<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>根因</dt><dd>服务返回 <code>START_STICKY</code>，被系统杀掉后会重新拉起并再次 <code>startForeground</code>，但 <code>onStartCommand</code> 里没检查用户开关。而且原来的"关闭"逻辑写在 <code>onDestroy</code> 里调 <code>stopSelf()</code>——进程被 kill 时 <code>onDestroy</code> 根本不会执行，属于无效代码。</dd></div>
+  <div class="row"><dt>修法</dt><dd><code>onStartCommand</code> 开头检查 <code>Prefs.keepAlive</code>，关了就 <code>stopForeground + stopSelf</code> 并返回 <code>START_NOT_STICKY</code>；删掉 onDestroy 里的无效调用。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>标题被吃出残渣<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>现象</dt><dd><span class="before">「周五前提交材料」→ 标题 "前提交材料"</span><br>
+    <span class="before">「下午三点到五点值班」→ 标题 "到五点值班"</span><br>
+    <span class="before">「2026/10/25 9:00-11:00 培训」→ 标题 "培训"（这条是对的）</span></dd></div>
+  <div class="row"><dt>根因</dt><dd>日期/时间的匹配区间没有覆盖"尾巴"："周五<b>前</b>"的"前"、"三点<b>到五点</b>"的后半段都留在正文里。</dd></div>
+  <div class="row"><dt>修法</dt><dd>新增 <code>extendWeekTail()</code>（吃掉 前/之前/以前）和 <code>RE_TIME_RANGE</code>（把区间后半段并进时间 span）。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>大模型解析的三个独立缺陷<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>①</dt><dd><code>s.trim().replace('T', 'T')</code> —— 把 T 换成 T，完全无操作，明显是笔误（本意可能是归一化 ISO 的 T 分隔符）。已删。</dd></div>
+  <div class="row"><dt>②</dt><dd>模型返回中文日期「2026年10月25日 20:00」时，四种 <code>yyyy-MM-dd</code> 格式全部失败 → 整条丢弃。已加中文日期兜底。</dd></div>
+  <div class="row"><dt>③</dt><dd>用户把完整地址粘进来（<code>.../v1/chat/completions</code>）会被再拼一次，变成 <code>.../chat/completions/chat/completions</code>，报 404 且没有任何提示。已判断后缀，避免重复拼接。</dd></div>
+</div>
+
+<div class="card">
+  <h3><span class="tag t-p1">P1</span>排提醒没有异常兜底<span class="tag t-fix" style="margin-left:auto">已修</span></h3>
+  <div class="row"><dt>根因</dt><dd><code>canScheduleExactAlarms()</code> 在个别 ROM 上会说谎（检查通过，真排的时候抛 <code>SecurityException</code>），而 <code>setExactAndAllowWhileIdle</code> 外面没有保护。</dd></div>
+  <div class="row"><dt>修法</dt><dd>精确闹钟失败自动降级到非精确 <code>setAndAllowWhileIdle</code>；<code>cancel</code> 也包上 runCatching。</dd></div>
+</div>
+
+<h2>P2 · 静态检查捞出来的</h2>
+
+<table>
+  <thead><tr><th>问题</th><th>说明</th><th>处理</th></tr></thead>
+  <tbody>
+    <tr><td>死资源</td><td><code>glass_fill_soft</code> 在改成蓝色后没人引用了</td><td class="ok">已删</td></tr>
+    <tr><td>死代码</td><td><code>ServiceHealth</code> 里的 <code>SDK_INT &lt; M</code> 判断，minSdk 26 之下恒为 false</td><td class="ok">已删（连 import 一起）</td></tr>
+    <tr><td>列表全量重绑</td><td>每次勾选、每次 onResume 都 <code>notifyDataSetChanged()</code>，所有卡片（含 5 层亚克力背景）重绘一遍</td><td class="ok">内容没变就直接 return</td></tr>
+    <tr><td>卡片背景反复重建</td><td><code>setBackgroundResource</code> 每次 bind 都调，会重建 Drawable</td><td class="ok">用 tag 记住当前背景，变了才换</td></tr>
+    <tr><td>Overdraw</td><td>列表项根布局自己画背景，主题也画了一层窗口背景</td><td class="no">保留</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>Overdraw 为什么不修</b>：亚克力面板本身就是"半透明层 + 噪点 + 高光"叠出来的，多一次合成是这套视觉的固有成本。
+  真机上如果滚动明显掉帧，第一件事是把 <code>noise_tile.png</code> 那层去掉试试——它是唯一可以牺牲的质感来源。
+</div>
+
+<h2>发现的但本轮没修</h2>
+<table>
+  <thead><tr><th>问题</th><th>为什么不修</th></tr></thead>
+  <tbody>
+    <tr><td>「1小时后」「半小时后」「月底前」不识别</td><td>需要新的相对时间规则族，和现有"日期 + 钟点"模型不同，改动面大，先记录。</td></tr>
+    <tr><td>「周三或周四」只取第一个，且"周四"会被当残渣清掉</td><td>属于"一段多日期"的已知限制。要修得引入候选集 + 让用户选，是交互设计问题不是解析问题。</td></tr>
+    <tr><td>整句只有一个日期时，标题会只剩"上午"</td><td>原文确实没有事件名（"本周日上午"），没有信息可抽。当前兜底是退回原文，可接受。</td></tr>
+    <tr><td>对话框仍是 Material 纯白</td><td>要改得重做 <code>materialAlertDialogTheme</code> 背景，有把系统弹窗搞花的风险，留到下一轮单独做。</td></tr>
+  </tbody>
+</table>
+
+<h2>验证结果</h2>
+<table>
+  <thead><tr><th>项目</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>单元测试</td><td class="ok">49 / 49 通过（原有 29 + 新增 20 条健壮性/回归）</td></tr>
+    <tr><td>构建</td><td class="ok">assembleDebug BUILD SUCCESSFUL</td></tr>
+    <tr><td>lint</td><td class="ok">0 error / 34 warning（全部是硬编码文案、Overdraw 这类）</td></tr>
+    <tr><td>正则耗时</td><td class="ok">5000 字病态输入 &lt; 10ms，无回溯风险</td></tr>
+    <tr><td>真机 UI / 保活</td><td class="no">未验证（本机没有图形环境和真机）</td></tr>
+    <tr><td>大模型联调</td><td class="no">未验证（无 API Key，只做了代码路径审查）</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  智能日程 v1.3 · 测试报告 · 所有"已修"项都有对应回归测试锁住，改动位置在 git 历史里可查
+</footer>
+
+</div>
+</body>
+</html>

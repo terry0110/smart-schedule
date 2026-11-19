@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+build/
+app/build/
+captures/
+.externalNativeBuild
+.cxx
+*.hprof
+.DS_Store
+.kotlin/
+
+# 签名材料：绝对不能进版本库。泄露等于别人能签发"你的"更新包，
+# 而 Android 只认签名不认人，用户装上去看不出区别。
+keystore.properties
+keystore/
+*.jks
+*.keystore
+
+# 出包产物不进版本库：每个 5MB，三十多版就是 200MB，git 存大二进制会越用越慢。
+# 历史包继续留在 dist/ 磁盘上（回滚/对比靠它们），账本 HISTORY.md 照常跟踪。
+dist/*.apk

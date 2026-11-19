@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 多选操作条上的按钮底：一小块玻璃，和头部圆形按钮同一族 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#260F172A">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#B8FFFFFF" />
+            <corners android:radius="12dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#E6FFFFFF" />
+        </shape>
+    </item>
+</ripple>

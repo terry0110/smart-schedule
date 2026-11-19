@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能日程 v1.5 安全审查报告</title>
+<style>
+  :root{
+    --bg:#f4f7fc; --panel:#fff; --ink:#0f172a; --ink2:#556277; --ink3:#8a95a8;
+    --line:#e3e9f2; --blue:#2563eb; --blue-bg:#eff5ff;
+    --red:#b42318; --red-bg:#fef3f2; --amber:#b45309; --amber-bg:#fffaeb;
+    --green:#067647; --green-bg:#ecfdf3; --gray-bg:#f1f4f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.7 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:36px 22px 64px}
+  h1{font-size:25px;margin:0 0 6px}
+  .sub{color:var(--ink2);font-size:13px}
+  .meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:4px 12px;font-size:12px;color:var(--ink2)}
+  .pill b{color:var(--ink);font-weight:600}
+  h2{font-size:16px;margin:34px 0 12px;padding-left:10px;border-left:3px solid var(--blue)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px 20px;margin-bottom:14px}
+  .card h3{margin:0 0 8px;font-size:14.5px}
+  code{background:var(--gray-bg);border-radius:4px;padding:1px 5px;font-size:12.5px;
+    font-family:ui-monospace,Consolas,monospace;color:#26324a;word-break:break-all}
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--gray-bg);font-weight:600;font-size:12.5px;color:var(--ink2)}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--green);font-weight:600}
+  .no{color:var(--red);font-weight:600}
+  .warn{color:var(--amber);font-weight:600}
+  ul{margin:8px 0 0;padding-left:20px;color:var(--ink2);font-size:13.2px}
+  li{margin:5px 0}
+  .note{background:var(--blue-bg);border:1px solid #d3e2fb;border-radius:12px;
+    padding:14px 16px;font-size:13px;color:#1e40af;margin-top:14px}
+  .danger{background:var(--red-bg);border:1px solid #fbd5d0;border-radius:12px;
+    padding:14px 16px;font-size:13px;color:var(--red);margin-top:14px}
+  footer{margin-top:40px;color:var(--ink3);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>智能日程 v1.5 安全审查报告</h1>
+<div class="sub">目标：不留可被外部利用的口子；不该留的数据一条都不留</div>
+<div class="meta">
+  <span class="pill">组件导出 <b>仅 1 个（桌面入口）</b></span>
+  <span class="pill">明文 Key <b>已消除</b></span>
+  <span class="pill">备份导出 <b>已关闭</b></span>
+  <span class="pill">明文 HTTP <b>已禁止</b></span>
+  <span class="pill">日志泄漏 <b>0 处</b></span>
+  <span class="pill">lint <b>0 error</b></span>
+</div>
+
+<h2>先说清楚：哪些数据本来就该留、哪些不该留</h2>
+<div class="card">
+  <p style="margin:0 0 10px;color:var(--ink2);font-size:13.2px">
+    「不要保存用户数据」在日程应用里有两种解读，必须分开处理：
+    <b>日程本身必须存</b>（不存这个应用就没有意义）；<b>但为了排查而顺手存下来的东西，一条都不该留</b>。
+    审查前的问题是后者：抓取日志把每条通知的原文都写进了 SharedPreferences。
+  </p>
+  <table>
+    <thead>
+      <tr><th>数据</th><th>存在哪</th><th>加密</th><th>能否关/删</th><th>会不会外传</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>日程（标题/时间/地点/原文摘要）</td>
+        <td>本机 SQLite <code>schedule.db</code></td>
+        <td class="no">否（应用私有目录）</td>
+        <td class="ok">可一键全删</td>
+        <td class="ok">不外传</td>
+      </tr>
+      <tr>
+        <td>通知处理日志（应用名/结果/原因）</td>
+        <td>SharedPreferences</td>
+        <td class="no">否</td>
+        <td class="ok">可清空</td>
+        <td class="ok">不外传</td>
+      </tr>
+      <tr>
+        <td><b>通知原文</b></td>
+        <td>日志 / 日程备注</td>
+        <td class="no">否</td>
+        <td class="ok"><b>日志里默认不存</b>（新增开关）；备注截断 500 字</td>
+        <td class="ok">不外传</td>
+      </tr>
+      <tr>
+        <td>大模型 API Key</td>
+        <td>SharedPreferences（密文）</td>
+        <td class="ok"><b>Android Keystore AES-GCM</b></td>
+        <td class="ok">可全删</td>
+        <td class="ok">只发给用户自己配的接口</td>
+      </tr>
+      <tr>
+        <td>通知原文（发给大模型时）</td>
+        <td>不落盘</td>
+        <td>—</td>
+        <td class="ok"><b>默认不允许，需显式开启</b></td>
+        <td class="warn">会发给第三方，仅在用户开启后</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>这次改了什么</h2>
+
+<div class="card">
+  <h3>1. API Key 不再明文落盘</h3>
+  <p style="margin:0;color:var(--ink2);font-size:13.2px">
+    原来直接 <code>putString("llm_key", 明文)</code>。SharedPreferences 是私有目录里的明文 XML，
+    root 设备、调试版、任何能把 <code>/data/data</code> 拿出来的手段都能直接读到 —— 而 API Key 是用户的付费凭证。
+  </p>
+  <ul>
+    <li>改用 Android Keystore 生成不可导出的 AES 密钥，密钥留在 TEE 里，应用只能请求加解密</li>
+    <li>密文用 AES/GCM（带认证标签，改一个 bit 就解不开）</li>
+    <li>老版本存过的明文条目，第一次读取时自动迁移并删除</li>
+    <li>解密失败（换机、Keystore 重置）当作"未配置"，不会崩</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>2. 关掉所有能整体搬走数据的路</h3>
+  <ul>
+    <li><code>allowBackup=false</code> —— 原来默认 true，<code>adb backup</code> 一条命令就能把数据库 + 全部设置导出</li>
+    <li><code>fullBackupContent=false</code> —— 覆盖 API 30 以下</li>
+    <li><code>data_extraction_rules.xml</code> —— 覆盖 API 31+，云备份和换机迁移都排除全部数据</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>3. 禁止明文 HTTP</h3>
+  <p style="margin:0;color:var(--ink2);font-size:13.2px">
+    原来 <code>usesCleartextTraffic=true</code>。用户可以把大模型地址填成 <code>http://</code>，
+    那么<b>通知原文和 API Key 会以明文走网络</b>，同一 Wi-Fi 下抓包就能拿到。
+  </p>
+  <ul>
+    <li><code>usesCleartextTraffic=false</code> + <code>network_security_config</code>，只对 <code>localhost / 127.0.0.1 / 10.0.2.2</code> 放行（方便自建本地服务调试）</li>
+    <li>代码层提前拦截并提示，免得用户填了 http 只看到"识别失败"却不知道为什么</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4. 通知原文不再默认写进日志</h3>
+  <p style="margin:0;color:var(--ink2);font-size:13.2px">
+    抓取日志原来存每条通知的前 160 字。那条"为了排查"的理由很正当，但代价是把
+    <b>聊天内容、验证码、订单号</b>长期留在本机。现在：
+  </p>
+  <ul>
+    <li>日志只记「哪个应用 / 什么结果 / 为什么」，默认<b>不含正文</b></li>
+    <li>需要排查时，设置里可以开「记录通知原文」，只留 80 字，随时能关</li>
+    <li>日程备注里的原文截断到 500 字</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>5. 通知自动抓取不再默认把内容发给大模型</h3>
+  <p style="margin:0;color:var(--ink2);font-size:13.2px">
+    原来只要开了大模型，<b>每一条</b>本地解析失败的通知都会被原文发到第三方接口 ——
+    用户以为自己只开了"手动识别"，实际后台一直在外传。现在拆成两个开关：
+  </p>
+  <ul>
+    <li>大模型总开关（管手动「识别」按钮）</li>
+    <li><b>「通知自动抓取时调用大模型」默认关闭</b>，要让后台也联网必须专门打开</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>6. 锁屏不再显示日程内容</h3>
+  <p style="margin:0;color:var(--ink2);font-size:13.2px">
+    提醒通知原来是明文的，锁屏上直接显示「复诊」「面试」「交房租」这类标题。
+    现在设为 <code>VISIBILITY_PRIVATE</code> + 脱敏的 <code>PublicVersion</code>：
+    锁屏只显示"智能日程 · 日程提醒"，解锁后才看得到具体内容。
+  </p>
+</div>
+
+<div class="card">
+  <h3>7. 收掉多余的对外入口</h3>
+  <table>
+    <thead><tr><th>组件</th><th>导出</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>MainActivity</td><td class="warn">是</td><td>桌面入口，必须导出；无入参、无敏感返回</td></tr>
+      <tr><td>SettingsActivity / CaptureLogActivity</td><td class="ok">否</td><td>—</td></tr>
+      <tr><td>NotificationCaptureService</td><td class="ok">否</td><td>额外受 <code>BIND_NOTIFICATION_LISTENER_SERVICE</code> 保护</td></tr>
+      <tr><td>KeepAliveService / ReminderReceiver / BootReceiver</td><td class="ok">否</td><td>—</td></tr>
+      <tr><td>profileinstaller 的 ProfileInstallReceiver</td><td class="ok">已移除</td><td>第三方库带进来的导出组件，本项目用不到其功能</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>逐项检查清单</h2>
+<table>
+  <thead><tr><th>检查项</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>应用日志（Log.d / println / printStackTrace）泄漏</td><td class="ok">0 处</td></tr>
+    <tr><td>外部存储读写</td><td class="ok">无（全部在应用私有目录）</td></tr>
+    <tr><td>ContentProvider 暴露</td><td class="ok">无自定义；仅 androidx 启动用的 InitializationProvider（exported=false）</td></tr>
+    <tr><td>WebView / JS 桥</td><td class="ok">不使用</td></tr>
+    <tr><td>PendingIntent 可变性</td><td class="ok">全部 <code>FLAG_IMMUTABLE</code></td></tr>
+    <tr><td>动态注册广播 / 隐式 Intent 泄漏</td><td class="ok">无</td></tr>
+    <tr><td>第三方 SDK / 统计 / 广告</td><td class="ok">无，只有 androidx 与 Material</td></tr>
+    <tr><td>申请的危险权限</td><td class="ok">只有通知、精确闹钟、开机自启、前台服务，均为功能所需</td></tr>
+    <tr><td>lint 安全类（AllowBackup / Exported* / CleartextTraffic 等）</td><td class="ok">0 命中</td></tr>
+  </tbody>
+</table>
+
+<h2>还剩什么风险（不粉饰）</h2>
+<div class="danger">
+  <b>1. 这是 debug 签名包，<code>android:debuggable=true</code>。</b>
+  自己用没问题；如果要分发给别人，必须出 release 包并自签名，否则调试器可以附加到进程读内存。
+</div>
+<ul>
+  <li><b><code>FLAG_SECURE</code> 只在后台生效</b>（v1.6 已加）：切到后台时窗口上锁，最近任务缩略图变空白；回到前台自动放开，正常截图、录屏、分享不受影响。实现见 <code>util/ScreenGuard.kt</code>，挂在 <code>ActivityLifecycleCallbacks</code> 上统一处理。<b>挡不住</b>另一台手机对着屏幕拍，以及 root 后直接抓显存。</li>
+  <li><b>root 设备</b>：SQLite 明文存储对 root 无防护。Android 上单应用无法对抗 root。</li>
+  <li><b>大模型服务商本身</b>：开启后原文会发给对方，是否留存在他们那边由对方政策决定。这是使用该功能的固有代价。</li>
+  <li><b>Keystore 在恢复出厂后失效</b>：旧密文解不开，表现为"Key 需要重填"，属预期行为。</li>
+</ul>
+
+<div class="note">
+  <b>自己验证（可选）</b>：<br>
+  <code>aapt2 dump badging app-debug.apk | grep -i backup</code> 应无输出；<br>
+  <code>adb shell dumpsys package com.terry.smartschedule | grep -i exported</code> 查看导出组件；<br>
+  设置里点「删除所有本地数据」，再检查 <code>adb shell run-as com.terry.smartschedule ls -l databases shared_prefs</code>。
+</div>
+
+<h2>验证结果</h2>
+<table>
+  <thead><tr><th>项目</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>单元测试</td><td class="ok">49 / 49 通过</td></tr>
+    <tr><td>构建</td><td class="ok">BUILD SUCCESSFUL</td></tr>
+    <tr><td>lint</td><td class="ok">0 error / 34 warning</td></tr>
+    <tr><td>APK 内清单核验</td><td class="ok">allowBackup=false、cleartext=false、两个 xml 策略已打包</td></tr>
+    <tr><td>真机行为</td><td class="no">未验证（无设备）</td></tr>
+  </tbody>
+</table>
+
+<footer>智能日程 v1.5 · 安全审查 · 每一条"已修"都可在源码里查到对应改动</footer>
+
+</div>
+</body>
+</html>

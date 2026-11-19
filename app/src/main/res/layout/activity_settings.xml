@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置页：同一套亚克力（光斑背景 + 磨砂头部 + 玻璃卡片） -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <include
+        layout="@layout/view_acrylic_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 磨砂头部 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_acrylic_header"
+            android:elevation="4dp"
+            android:orientation="vertical"
+            android:paddingBottom="14dp">
+
+            <View
+                android:id="@+id/statusBarSpace"
+                android:layout_width="match_parent"
+                android:layout_height="0dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="16dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_glass_circle"
+                    android:contentDescription="@string/cancel"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_back" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/settings"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ScrollView
+            android:id="@+id/scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:overScrollMode="never">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="28dp">
+
+                <!-- ======== 自动识别 ======== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_acrylic_card"
+                    android:orientation="vertical"
+                    android:padding="17dp">
+
+                    <TextView
+                        style="@style/SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_capture" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCapture"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_capture_switch"
+                        android:textSize="15sp" />
+
+                    <!-- 处理范围。这一行必须显眼：用户装完会疑惑"为什么其他应用的通知没抓到"，
+                         不写清楚就会被当成 bug。 -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_scope"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_scope_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <!-- 服务真实状态，比"已授权"更有用 -->
+                    <TextView
+                        android:id="@+id/tvListenerState"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:lineSpacingExtra="3dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnListener"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/settings_grant_listener" />
+
+                    <!-- requestRebind 只是"请求"，系统可以不理。真正能强制重绑的是
+                         在系统设置里把开关关掉再打开，所以这条路必须给出来 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnListenerSettings"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/settings_open_listener"
+                        android:textColor="@color/brand"
+                        android:textSize="12.5sp"
+                        app:cornerRadius="10dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="2dp"
+                        android:background="@color/glass_divider" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swKeepAlive"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_keepalive_switch"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/settings_keepalive_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBattery"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/settings_battery" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAutoStart"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/settings_autostart" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="2dp"
+                        android:background="@color/glass_divider" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swPending"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_pending_switch"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/settings_pending_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="2dp"
+                        android:background="@color/glass_divider" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swVerbose"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/settings_verbose"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/settings_verbose_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnScan"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/settings_scan_now" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/settings_scan_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLog"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="6dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/settings_capture_log"
+                        android:textColor="@color/brand"
+                        android:textSize="13.5sp"
+                        app:cornerRadius="12dp" />
+                </LinearLayout>
+
+                <!-- ======== 系统日历同步 ======== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_acrylic_card"
+                    android:orientation="vertical"
+                    android:padding="17dp">
+
+                    <TextView
+                        style="@style/SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_calendar" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCalendar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_calendar_switch"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tvCalendarDesc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_calendar_desc_off"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalendarSync"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="6dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/settings_calendar_sync_now"
+                        android:textColor="@color/brand"
+                        android:textSize="13.5sp"
+                        app:cornerRadius="12dp" />
+                </LinearLayout>
+
+                <!-- ======== 提醒 ======== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_acrylic_card"
+                    android:orientation="vertical"
+                    android:padding="17dp">
+
+                    <TextView
+                        style="@style/SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_remind" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Input.NoOutline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="@string/settings_remind_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etRemind"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberSigned"
+                            android:maxLines="1"
+                            android:textSize="13.5sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!--
+                      到点怎么提醒。四档单选，不是开关 ——
+                      "全屏 / 横幅 / 静音"是互斥的三种打扰程度，用开关表达不了。
+                    -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/settings_remind_style"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/tgRemindStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:selectionRequired="true"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnStyleFull"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_weight="1"
+                            android:maxLines="1"
+                            android:paddingLeft="0dp"
+                            android:paddingRight="0dp"
+                            android:text="@string/remind_style_full"
+                            android:textSize="13.5sp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnStyleBanner"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_weight="1"
+                            android:maxLines="1"
+                            android:paddingLeft="0dp"
+                            android:paddingRight="0dp"
+                            android:text="@string/remind_style_banner"
+                            android:textSize="13.5sp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnStyleVibrate"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_weight="1"
+                            android:maxLines="1"
+                            android:paddingLeft="0dp"
+                            android:paddingRight="0dp"
+                            android:text="@string/remind_style_vibrate"
+                            android:textSize="13.5sp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnStyleSilent"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_weight="1"
+                            android:maxLines="1"
+                            android:paddingLeft="0dp"
+                            android:paddingRight="0dp"
+                            android:text="@string/remind_style_silent"
+                            android:textSize="13.5sp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp" />
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                    <!-- 选中的那档到底是什么效果。这句必须跟着变：
+                         用户选"横幅"时最想知道的就是"会不会盖住游戏"。 -->
+                    <TextView
+                        android:id="@+id/tvStyleDesc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <!-- 这里只是默认值：单条日程在编辑时可以覆盖，所以要说清"默认"两个字 -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_remind_style_hint"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <!-- 「稍后 10 分钟」的真实行为。之前没人说过它到底推迟多久、
+                         推迟后长什么样，用户点了没看到全屏页就以为这功能没实现。 -->
+                    <TextView
+                        android:id="@+id/tvSnoozeHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_snooze_hint"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAlarm"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/settings_exact_alarm" />
+                </LinearLayout>
+
+                <!-- ======== 隐私与数据 ======== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_acrylic_card"
+                    android:orientation="vertical"
+                    android:padding="17dp">
+
+                    <TextView
+                        style="@style/SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_privacy" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swLogRaw"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_log_raw"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/settings_log_raw_desc"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11.5sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/settings_privacy_note"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11.8sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnWipe"
+                        style="@style/Btn.Glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/settings_wipe"
+                        android:textColor="@color/warn"
+                        app:strokeColor="#4DB45309" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnSave"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="18dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:fontFamily="sans-serif-medium"
+                    android:minWidth="0dp"
+                    android:stateListAnimator="@null"
+                    android:text="@string/action_save_settings"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/tvTip"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:lineSpacingExtra="4dp"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="11.5sp" />
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+</FrameLayout>

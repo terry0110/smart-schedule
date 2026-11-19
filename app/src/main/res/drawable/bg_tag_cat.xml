@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  分类小标签的底：中性白，颜色由代码 backgroundTintList 按分类染。
+  用 tint 而不是给五类各做一个 drawable：形状一致、只差颜色，
+  将来加一类只要加一个颜色值。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="7dp" />
+</shape>

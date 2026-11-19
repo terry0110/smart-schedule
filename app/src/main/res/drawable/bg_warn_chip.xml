@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 待确认横幅：暖色玻璃，和冷色主面板形成对比，但同样半透明 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="@color/pending_edge_lo"
+                android:startColor="#8CE8B25C"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="15dp" />
+            <solid android:color="#E0FFF6E6" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <bitmap
+            android:filter="false"
+            android:src="@drawable/noise_tile"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

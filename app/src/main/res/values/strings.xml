@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">智汇日程</string>
+    <string name="settings">设置</string>
+    <string name="header_subtitle">粘贴通知，自动变成日程</string>
+
+    <string name="hint_input_short">粘贴通知文本，或手动写一句</string>
+    <string name="action_parse">识别</string>
+    <string name="action_clear">清空</string>
+    <!-- 识别结果面板上的按钮 -->
+    <string name="action_save">添加到日程</string>
+    <!-- 设置页底部的按钮。别复用 action_save：那边是"添加到日程"，
+         复用过一次，设置页最底下就长出一个奇怪的"添加到日程"按钮。 -->
+    <string name="action_save_settings">保存设置</string>
+    <string name="action_cancel">取消</string>
+
+    <string name="label_title">标题</string>
+    <string name="label_location">地点（可选）</string>
+    <string name="label_all_day">全天（没有具体时间）</string>
+
+    <string name="empty_title">还没有日程</string>
+    <string name="empty_hint">把一段通知粘到上面点「识别」，\n或者去设置里打开通知监听自动抓取</string>
+
+    <string name="preview_title">识别结果</string>
+    <string name="editor_title">编辑日程</string>
+    <string name="action_save_edit">保存修改</string>
+    <string name="preview_warn_title">这几处需要你确认</string>
+
+    <string name="tag_pending">待确认</string>
+
+    <string name="delete_title">删除这条日程？</string>
+    <string name="delete_confirm">删除</string>
+
+    <!-- 多选 -->
+    <string name="select_count">已选 %1$d 项</string>
+    <string name="select_none">未选择</string>
+    <string name="select_all">全选</string>
+    <string name="select_none_all">取消全选</string>
+    <string name="select_close">退出多选</string>
+    <string name="select_bar_delete">删除</string>
+    <string name="delete_selected_title">删除选中的 %1$d 条日程？</string>
+    <string name="delete_selected_message">提醒和通知会一并撤掉，删除后无法恢复。</string>
+    <string name="cancel">取消</string>
+
+    <!-- 设置页 -->
+    <string name="settings_section_capture">自动识别</string>
+    <string name="settings_capture_switch">监听微信/QQ 通知并自动建日程</string>
+    <string name="settings_keepalive_switch">后台常驻，避免被杀</string>
+    <string name="settings_keepalive_desc">会显示一条常驻通知。不开的话，系统清理后台后就收不到通知了。</string>
+    <string name="settings_pending_switch">没把握的结果进「待确认」</string>
+    <string name="settings_pending_desc">关掉后，识别把握不足的通知会被直接丢弃。</string>
+    <string name="settings_open_listener">打开系统「通知使用权」设置</string>
+    <string name="settings_grant_listener">去授予通知使用权</string>
+    <string name="settings_battery">允许后台常驻（电池优化白名单）</string>
+    <string name="settings_autostart">去设置自启动</string>
+    <string name="settings_scope">只分析微信、QQ、TIM 的通知，其他应用一律不看</string>
+    <string name="settings_scope_desc">这是有意的收窄：新闻、电商、游戏、运营商短信里日期和数字太密集，误报基本都从那儿来。代价是短信、邮件里的日程也抓不到了 —— 这类可以手动粘贴识别。</string>
+    <string name="settings_verbose">诊断模式（记录每一条通知）</string>
+    <string name="settings_verbose_desc">打开后，连被判为不相关而跳过的通知也会记一条，用来判断服务到底有没有收到东西。仍不记录通知正文。</string>
+    <string name="settings_scan_now">立即检测当前通知栏</string>
+    <string name="settings_scan_desc">把通知栏里已有的微信/QQ 通知过一遍，不用干等新通知。</string>
+    <string name="settings_capture_log">查看最近的通知处理记录</string>
+
+    <string name="settings_section_calendar">系统日历同步</string>
+    <string name="settings_calendar_switch">把日程写进手机系统日历</string>
+    <string name="settings_calendar_desc_off">关闭时日程只存在本应用内。打开会申请日历读写权限，只在本机写入，不联网。</string>
+    <string name="settings_calendar_desc_no_perm">已打开，但缺少日历权限，去系统设置里允许后点下面重新同步。</string>
+    <string name="settings_calendar_desc_on">已开启：新建、修改、删除日程都会同步到系统日历，提醒仍由本应用负责（不会双响）。</string>
+    <string name="settings_calendar_sync_now">立即把已有日程补进日历</string>
+
+    <string name="settings_section_remind">提醒</string>
+    <string name="settings_remind_hint">提前多少分钟（-1 表示不提醒）</string>
+    <string name="settings_remind_style">默认通知方式</string>
+    <string name="remind_style_full">全屏</string>
+    <string name="remind_style_banner">横幅</string>
+    <string name="remind_style_silent">静音</string>
+    <string name="remind_style_vibrate">振动</string>
+    <string name="remind_style_desc_full">息屏或锁屏时弹一整页、自动点亮屏幕。你正在用手机时，系统只会降级成横幅 —— 后台应用盖不住前台界面，这是 Android 的硬限制，不是这个应用能绕过的。两种情况都响铃震动。</string>
+    <string name="remind_style_desc_banner">任何状态都只从顶部滑一条横幅，永不弹整页。打游戏、看视频不会被打断，照样响铃震动。</string>
+    <string name="remind_style_desc_silent">只往通知栏放一条，不响不震，任何状态都不弹。最容易真的错过，适合常看手机的人。</string>
+    <string name="remind_style_desc_vibrate">只震动，不响铃。开会、上课、图书馆这类不能出声的场合用它 —— 手机震一下就知道，不吵到别人。不弹全屏页，只在屏幕顶部出横幅。</string>
+    <string name="settings_remind_style_hint">这是所有日程的默认方式；某条日程想单独换，在编辑它的时候选就行，会覆盖这里。</string>
+    <string name="sheet_style_label">通知方式</string>
+    <string name="style_name_default">跟随设置</string>
+    <string name="cat_study">学习</string>
+    <string name="cat_work">工作</string>
+    <string name="cat_life">生活</string>
+    <string name="cat_club">社团</string>
+    <string name="cat_other">其他</string>
+    <string name="sheet_cat_label">分类</string>
+    <string name="cat_auto_hint">不选就按内容自动判断</string>
+    <string name="filter_all">全部</string>
+
+    <!-- 检索 -->
+    <string name="search">搜索日程</string>
+    <string name="search_hint">搜索标题、地点或原文</string>
+    <string name="search_close">取消</string>
+    <string name="search_count">找到 %1$d 条</string>
+    <string name="search_count_scoped">找到 %1$d 条 · 只在「%2$s」里搜</string>
+    <string name="search_empty">没有匹配「%1$s」的日程</string>
+    <string name="search_empty_scoped">「%1$s」里没有匹配「%2$s」的日程</string>
+    <string name="search_empty_hint">换个词试试；多个词用空格隔开，它们是"都要有"的关系</string>
+    <string name="sheet_style_default_desc">没单独选，按默认来：设置里现在是「%1$s」。选某一档只影响这一条日程。</string>
+    <string name="settings_snooze_hint">「稍后 10 分钟」会在 10 分钟后再提醒一次；到那时如果你正在用手机，同样以横幅出现，不会盖屏。</string>
+    <string name="settings_exact_alarm">允许精确提醒（Android 12+）</string>
+
+    <string name="settings_section_privacy">隐私与数据</string>
+    <string name="settings_log_raw">抓取日志里保存通知原文</string>
+    <string name="settings_log_raw_desc">默认关闭。关闭时日志只记「哪个应用、什么结果、为什么」，不记通知内容。</string>
+    <string name="settings_no_network">本应用不申请网络权限，所有解析都在手机上完成。</string>
+    <string name="settings_privacy_note">日程、抓取日志、设置全部只存在本机，不参与系统云备份，也不会上传到任何服务器——本应用连网络权限都没有。唯一会写出去的，是你自己打开的「系统日历同步」，且只写进本机日历，不进任何账号。</string>
+    <string name="settings_wipe">删除所有本地数据</string>
+
+    <!-- 捕获日志页 -->
+    <string name="capture_log_title">通知处理记录</string>
+    <string name="capture_log_empty">还没有记录。\n开启通知监听后，每一条被处理的通知都会记在这里。</string>
+    <string name="capture_log_clear">清空记录</string>
+    <!-- 全屏提醒 -->
+    <string name="remind_tag">日程提醒</string>
+    <string name="remind_all_day">全天</string>
+    <string name="remind_done">知道了</string>
+    <string name="remind_snooze">稍后 10 分钟</string>
+    <string name="remind_open">查看日程</string>
+
+</resources>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  亚克力背景层：几团柔和的彩色光斑压在冷灰白底上。
+
+  为什么要这么做：亚克力（磨砂玻璃）好看的前提是"背后有东西可透"。
+  纯色背景 + 半透明白面板 = 一块灰白方块，一点都不像玻璃。
+  光斑本身边缘就是虚的，看起来等价于"模糊过的壁纸"，还不用真做高斯模糊
+  （真模糊要截屏，跨应用做不了，也很吃性能）。
+
+  用 include 复用到三个页面，别在每页各写一份。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_acryl_page"
+    android:clipChildren="true"
+    android:importantForAccessibility="noHideDescendants">
+
+    <!-- 左上：蓝。负 margin 让它出血到屏幕外，只露一段弧，才自然 -->
+    <View
+        android:layout_width="520dp"
+        android:layout_height="520dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="-170dp"
+        android:layout_marginTop="-220dp"
+        android:background="@drawable/blob_blue" />
+
+    <!-- 右上：天蓝 -->
+    <View
+        android:layout_width="460dp"
+        android:layout_height="460dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="-110dp"
+        android:layout_marginEnd="-160dp"
+        android:background="@drawable/blob_sky" />
+
+    <!-- 中部：蓝紫，压在最下面当体积感 -->
+    <View
+        android:layout_width="560dp"
+        android:layout_height="560dp"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="360dp"
+        android:background="@drawable/blob_indigo" />
+
+    <!-- 左下：淡粉 -->
+    <View
+        android:layout_width="470dp"
+        android:layout_height="470dp"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="-150dp"
+        android:layout_marginBottom="-170dp"
+        android:background="@drawable/blob_pink" />
+
+    <!-- 右下：青 -->
+    <View
+        android:layout_width="400dp"
+        android:layout_height="400dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="-110dp"
+        android:layout_marginBottom="-100dp"
+        android:background="@drawable/blob_cyan" />
+</FrameLayout>

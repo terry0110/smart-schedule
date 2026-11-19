@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 背景光斑：中心有颜色，边缘渐隐到全透明，模拟"壁纸被高斯模糊过" -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:endColor="#005B9BFF"
+        android:gradientRadius="265dp"
+        android:startColor="@color/blob_blue"
+        android:type="radial" />
+</shape>

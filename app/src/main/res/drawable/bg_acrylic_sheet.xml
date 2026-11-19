@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部弹层：只有上面两个角是圆的，同样带高光边和噪点 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners
+                android:topLeftRadius="26dp"
+                android:topRightRadius="26dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="#D9FFFFFF"
+                android:startColor="#F5FFFFFF"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <bitmap
+            android:filter="false"
+            android:src="@drawable/noise_tile"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

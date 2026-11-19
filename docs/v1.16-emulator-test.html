@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.16 模拟器实测报告 · 智能日程</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --line: #e6e8ec;
+    --text: #1a1d23; --muted: #62676f; --faint: #8b9098;
+    --ok: #15803d; --okbg: #f0fdf4; --okline: #bbf7d0;
+    --bad: #b91c1c; --badbg: #fef2f2; --badline: #fecaca;
+    --warn: #a16207; --warnbg: #fffbeb; --warnline: #fde68a;
+    --blue: #1d4ed8; --bluebg: #eff6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7; font-size: 15px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  h2 { font-size: 18px; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  p { margin: 10px 0; }
+  code {
+    background: #f1f2f4; padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px;
+  }
+  pre {
+    background: #1e2228; color: #e6e8ec; padding: 14px 16px; border-radius: 10px;
+    overflow-x: auto; font-size: 13px; line-height: 1.6;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; background: #fafbfc; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .tag.ok { color: var(--ok); background: var(--okbg); border: 1px solid var(--okline); }
+  .tag.bad { color: var(--bad); background: var(--badbg); border: 1px solid var(--badline); }
+  .tag.warn { color: var(--warn); background: var(--warnbg); border: 1px solid var(--warnline); }
+  .note { border-left: 3px solid var(--blue); background: var(--bluebg); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .note.bad { border-color: var(--bad); background: var(--badbg); }
+  .note.warn { border-color: var(--warn); background: var(--warnbg); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 16px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stat .n { font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .before { color: var(--bad); }
+  .after { color: var(--ok); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v1.16 模拟器实测报告</h1>
+  <div class="sub">智能日程 · Android 9（API 28）模拟器 · 2026-10-24</div>
+
+  <p>这是这个项目第一次在真实运行时环境里跑起来。此前所有 UI 和监听相关的结论都只能靠代码审查，报告里一直写着"无法验证"。这次补上了大部分，也抓出两个真机才暴露的误报。</p>
+
+  <div class="grid">
+    <div class="stat"><div class="n">7</div><div class="l">验证通过的功能项</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">发现并修复的误报</div></div>
+    <div class="stat"><div class="n">94</div><div class="l">单元测试（全通过）</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">lint error</div></div>
+  </div>
+
+  <h2>测试环境</h2>
+  <div class="card">
+    <table>
+      <tr><th>项</th><th>值</th></tr>
+      <tr><td>设备</td><td><code>emulator-5554</code></td></tr>
+      <tr><td>系统</td><td>Android 9 / API 28</td></tr>
+      <tr><td>被测版本</td><td>v1.16（versionCode 16）</td></tr>
+      <tr><td>授权方式</td><td>系统设置页手动开启「通知使用权」</td></tr>
+      <tr><td>验证手段</td><td><code>uiautomator dump</code> 读界面层级 + <code>input tap</code> 模拟操作</td></tr>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <b>为什么用界面层级而不是截图：</b>截图能生成，但图片内容识别被安全策略拦下了。改用 <code>uiautomator dump</code> 反而更精确 —— 拿到的是每个控件的实际坐标，判断"是否重叠"比肉眼更可靠。
+  </div>
+
+  <h2>验证通过的项</h2>
+  <table>
+    <tr><th>功能</th><th>结果</th><th>依据</th></tr>
+    <tr>
+      <td>顶部标题不压状态栏</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>「智能日程」控件顶部 <code>y=108</code>，状态栏高度约 70px，占位 View 生效</td>
+    </tr>
+    <tr>
+      <td>状态三态显示</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>关闭时显示「通知监听：已关闭」；授权后立刻变成「已授予，服务正在运行」</td>
+    </tr>
+    <tr>
+      <td>按钮状态联动</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>未连接→「重新连接监听服务」可点；连上后→「通知监听正常」自动禁用</td>
+    </tr>
+    <tr>
+      <td>编辑面板</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>标题 / 日期 / 时间 / 全天 / 地点 / 原文 / 警告区 / 保存删除按钮全部渲染正确</td>
+    </tr>
+    <tr>
+      <td>编辑即确认</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>保存后待确认横幅消失、「待确认」橙色标签消失、条目转正</td>
+    </tr>
+    <tr>
+      <td>长按删除</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>弹出「删除这条日程？」二次确认，确认后条目消失</td>
+    </tr>
+    <tr>
+      <td>通知抓取链路</td>
+      <td><span class="tag ok">通过</span></td>
+      <td>抓到 QQ 通知，正确解析出「10月25日 18:30」，自动建日程并排提醒</td>
+    </tr>
+    <tr>
+      <td>服务断线自动重连</td>
+      <td><span class="tag ok">通过</span></td>
+      <td><code>force-stop</code> 后日志记录「通知监听被系统断开，已请求重新连接」</td>
+    </tr>
+  </table>
+
+  <h2>发现的误报</h2>
+
+  <h3>① 会话名变成日程标题</h3>
+  <div class="note bad">
+    QQ 通知的 <code>EXTRA_TITLE</code> 是 <code>always online(2条新消息)</code> —— <b>19 个字符，超过上一版设的 16 字阈值</b>，所以没被识别成"发送人"。
+  </div>
+
+  <table>
+    <tr><th></th><th>修复前</th><th>修复后</th></tr>
+    <tr>
+      <td>日程标题</td>
+      <td class="before"><code>always online</code></td>
+      <td class="after"><code>宣传部培训通知</code></td>
+    </tr>
+    <tr>
+      <td>原文</td>
+      <td colspan="2" class="muted"><code>always online(2条新消息) 📢【宣传部培训通知✨】@所有人…宣传部将于10月25日（周日）晚上18:30…</code></td>
+    </tr>
+  </table>
+
+  <p><b>修法</b>：标题里出现 <code>(N条新消息)</code> 这种未读数尾巴，直接判定为通知栏摘要，不再看长度。</p>
+
+  <h3>② 游戏营销推送被建成日程</h3>
+  <div class="note bad">
+    <code>小王同学 🔥 王者荣耀2026周年庆，10月24日登录游戏领好礼！【登录就送】</code><br>
+    里面确实有「10月24日」，但这是广告，不是要你去做一件事。
+  </div>
+
+  <p><b>修法</b>：加营销词识别（登录就送 / 领好礼 / 优惠券 / 秒杀 …），命中且没有明确时间点就放过。「明天下午3点参加抽奖活动」这种真行程不会误伤。</p>
+
+  <h3>修复后的日志实证</h3>
+  <pre><code>已建日程 · 12:22 · QQ
+已建：宣传部培训通知
+📢【宣传部培训通知✨】@所有人 各位同学：宣传部将于10月25日（周日）晚上18:30…
+
+已跳过 · 12:22 · QQ
+未处理：文件 / 系统 / 资费类通知：🔥 王者荣耀2026周年庆，10月24日登录游戏领好礼！
+
+已跳过 · 12:22 · android
+未处理：系统包，不处理
+
+已跳过 · 12:21 · 系统
+通知监听被系统断开，已请求重新连接</code></pre>
+
+  <p class="muted">这几行是应用内置的「处理日志」自己记录的 —— 诊断模式打开后，每个回调都会留痕，包括被判为不相关而跳过的。排查误报时不用猜，直接看它走了哪条分支。</p>
+
+  <h2>仍未覆盖</h2>
+  <table>
+    <tr><th>项</th><th>状态</th><th>原因</th></tr>
+    <tr>
+      <td>通知栏「确认 / 删除」按钮</td>
+      <td><span class="tag warn">未验证</span></td>
+      <td>需要生成「待确认」状态的通知，模拟器上没有能稳定触发的源</td>
+    </tr>
+    <tr>
+      <td>重复日程拦截</td>
+      <td><span class="tag warn">未验证</span></td>
+      <td>需要输入中文标题，<code>adb input text</code> 不支持中文</td>
+    </tr>
+    <tr>
+      <td>后台保活</td>
+      <td><span class="tag warn">未验证</span></td>
+      <td>模拟器没有厂商 ROM 的杀后台策略，测了也不代表真机</td>
+    </tr>
+    <tr>
+      <td>真实微信 / QQ 通知</td>
+      <td><span class="tag warn">未验证</span></td>
+      <td>模拟器抓到的 QQ 通知来自系统镜像自带的测试数据</td>
+    </tr>
+    <tr>
+      <td>Android 13+ 通知权限</td>
+      <td><span class="tag warn">未验证</span></td>
+      <td>API 28 没有 <code>POST_NOTIFICATIONS</code> 运行时权限</td>
+    </tr>
+  </table>
+
+  <h2>复现方法</h2>
+  <p class="muted">调试时用的关键命令，下次可以直接抄。</p>
+  <pre><code># 装包（覆盖安装，数据保留）
+adb install -r dist/smart-schedule-v1.16-debug.apk
+
+# 抓界面层级（注意 Git Bash 下要关路径转换，否则 /sdcard 被改写）
+export MSYS_NO_PATHCONV=1
+adb shell uiautomator dump /sdcard/ui.xml
+adb pull /sdcard/ui.xml ./ui.xml
+
+# 点击 / 长按 / 滑动
+adb shell input tap 540 1286
+adb shell input swipe 540 1000 540 1000 900      # 原地按 900ms = 长按
+adb shell input swipe 540 1400 540 600 300       # 上滑
+
+# 截图（图片内容识别被拦时，用 uiautomator dump 代替）
+adb exec-out screencap -p &gt; shot.png</code></pre>
+
+  <div class="note">
+    <b>一个坑：</b>Git Bash 会把 <code>/sdcard/ui.xml</code> 当成路径自动转成
+    <code>D:/Program Files/.../sdcard/ui.xml</code>，导致 <code>adb pull</code> 找不到文件。
+    加 <code>export MSYS_NO_PATHCONV=1</code> 即可。
+  </div>
+
+</div>
+</body>
+</html>

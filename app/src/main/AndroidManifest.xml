@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 到点提醒 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      SCHEDULE_EXACT_ALARM 是普通应用可申请的特殊权限（设置里的"闹钟和提醒"），
+      lint 的 ProtectedPermissions 检查把它误判成系统应用专属，这里显式忽略。
+    -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!--
+      全屏提醒：到点时直接把提醒页弹在锁屏/桌面上，而不是只往通知栏塞一行。
+      Android 10 起这是普通权限；Android 14 起系统会把它限制给"闹钟/通话"类应用，
+      本应用本身就申请了 SCHEDULE_EXACT_ALARM，属于这一类。系统若仍拒绝，
+      提醒会退化成横幅 + 响铃，不影响通知本体。
+    -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!--
+      刻意不申请 INTERNET。"纯本地"不能只写在宣传页上 —— 没有网络权限，
+      应用在系统层面就发不出任何请求，这一点可以用 `aapt dump permissions` 验证。
+      曾经为"本地解析失败时调云端大模型"申请过，那段功能已经整块删掉了。
+    -->
+
+    <!-- 系统日历同步（可选功能，用户打开开关时才申请运行时权限） -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
+    <!-- 前台服务保活：让通知监听不被系统随手回收 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 申请"忽略电池优化"，这是国产 ROM 上最管用的一步 -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
+
+    <!--
+      安全相关的几处声明，改之前想清楚：
+
+      allowBackup=false        —— 默认 true 时，adb backup / 云备份能把数据库、SharedPreferences
+                                  （含加密后的 API Key）整个导走。日程和通知原文属于本机数据。
+      fullBackupContent=false  —— 老版本的备份开关，API 30 以下靠它。
+      dataExtractionRules      —— API 31+ 的等价物，两套都要写，覆盖全版本。
+      usesCleartextTraffic=false —— 关掉明文 HTTP，配合 networkSecurityConfig 只放行本机回环。
+    -->
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SmartSchedule"
+        android:usesCleartextTraffic="false"
+        tools:targetApi="s">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.CaptureLogActivity"
+            android:exported="false"
+            android:label="@string/capture_log_title"
+            android:parentActivityName=".ui.SettingsActivity" />
+
+        <!--
+          到点的全屏提醒页。
+
+          excludeFromRecents：它是一次性的打断，不该留在最近任务里被翻出来重开。
+          showWhenLocked / turnScreenOn：锁屏上直接显示并点亮屏幕，这是"能被注意到"的前提。
+          （API 26 没有这两个属性，代码里用 window flag 兜的）
+        -->
+        <activity
+            android:name=".ui.ReminderActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.SmartSchedule.Reminder"
+            android:turnScreenOn="true" />
+
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings"
+            android:parentActivityName=".ui.MainActivity" />
+
+        <!-- 通知监听：需要用户在系统设置里手动授予"通知使用权" -->
+        <service
+            android:name=".notify.NotificationCaptureService"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".notify.ReminderReceiver"
+            android:exported="false" />
+
+        <!--
+          前台保活服务：常驻一条低优先级通知，把进程抬到前台优先级。
+          specialUse 是 API 34 起要求声明的前台服务类型，理由写在 property 里。
+        -->
+        <service
+            android:name=".notify.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="持续运行通知监听，把系统通知转换成日程提醒" />
+        </service>
+
+        <!--
+          移除 profileinstaller 带的 benchmark 接收器。
+          它 exported=true，虽然声明了 DUMP 权限（普通应用拿不到）挡住了外部调用，
+          但本项目用不到 baseline profile 的基准触发功能，没必要留一个对外暴露的入口。
+          如果要恢复：删掉这个 receiver 块即可。
+        -->
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            tools:ignore="MissingClass"
+            tools:node="remove" />
+
+        <!-- 通知栏「确认 / 删除」按钮的接收端。
+             exported=false：靠 PendingIntent 由系统代理投递，外部应用发不进来 -->
+        <receiver
+            android:name=".notify.PendingActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".notify.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

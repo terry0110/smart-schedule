@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  多选选中态：和待确认同一套四层结构，只换颜色。
+
+  为什么不复用待确认的暖色：暖色在这个应用里已经固定表示"这条数据可能有问题"，
+  多选是**操作态**不是数据态，混用会让人以为选中就等于待确认。
+  所以这里用品牌蓝，和按钮、时间列同族。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="@color/select_edge_lo"
+                android:startColor="@color/select_edge_hi"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="19dp" />
+            <solid android:color="@color/select_fill" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="19dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="#00FFFFFF"
+                android:startColor="@color/glass_gloss"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <bitmap
+            android:filter="false"
+            android:src="@drawable/noise_tile"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

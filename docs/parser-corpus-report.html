@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能日程 · 通知解析测试报告</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a1c1f; --sub:#5b6470; --line:#e5e8ec;
+    --ok:#0f8a4d; --okbg:#e7f6ed; --bad:#c22f2f; --badbg:#fdeaea;
+    --warn:#8a5a00; --warnbg:#fdf3e0; --brand:#2f5bd7; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 20px 64px;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto}
+  header{margin-bottom:28px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.2px}
+  .meta{color:var(--sub);font-size:13px}
+  .meta b{color:var(--ink);font-weight:600}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:22px 0 30px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card .n{font-size:26px;font-weight:700;letter-spacing:-.5px}
+  .card .l{font-size:12px;color:var(--sub);margin-top:2px}
+  .card.good .n{color:var(--ok)}
+  h2{font-size:17px;margin:34px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h2 span{font-weight:400;font-size:12px;color:var(--sub);margin-left:8px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{background:#fafbfc;font-weight:600;font-size:12px;color:var(--sub);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fcfcfd}
+  code{font-family:var(--mono);font-size:12px;background:#f1f3f6;padding:1px 5px;border-radius:4px}
+  .t{font-family:var(--mono);font-size:12px;color:var(--sub);max-width:330px;display:block;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+  .pill.ok{background:var(--okbg);color:var(--ok)}
+  .pill.skip{background:#eef0f3;color:var(--sub)}
+  .pill.mid{background:var(--warnbg);color:var(--warn)}
+  .num{font-family:var(--mono);font-weight:600;white-space:nowrap}
+  .muted{color:var(--sub)}
+  .defect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .defect h3{margin:0 0 10px;font-size:14px}
+  .defect h3 em{font-style:normal;color:var(--bad);font-weight:700;margin-right:6px}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}
+  .ba div{padding:10px 12px;border-radius:8px}
+  .ba .before{background:var(--badbg)}
+  .ba .after{background:var(--okbg)}
+  .ba .tag{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:4px;opacity:.75}
+  .ba .before .tag{color:var(--bad)} .ba .after .tag{color:var(--ok)}
+  .ba code{background:rgba(0,0,0,.06)}
+  ul.limits{margin:0;padding-left:20px;font-size:13.5px}
+  ul.limits li{margin-bottom:7px}
+  .note{font-size:12.5px;color:var(--sub);margin-top:14px}
+  @media (max-width:720px){
+    .ba{grid-template-columns:1fr}
+    .t{max-width:180px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>智能日程 · 通知解析测试报告</h1>
+  <div class="meta">
+    语料来源：<b>通知测试.docx</b>（用户提供的真实群通知，113 段）&nbsp;·&nbsp;
+    基准时间：<b>2026-10-23 14:50（周五）</b>&nbsp;·&nbsp;
+    被测对象：<b>DateTimeParser.kt</b>（本地规则引擎）
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card good"><div class="n">14 / 14</div><div class="l">真实语料通过</div></div>
+  <div class="card good"><div class="n">29 / 29</div><div class="l">单测（15 规则 + 14 语料）</div></div>
+  <div class="card good"><div class="n">0</div><div class="l">Lint error</div></div>
+  <div class="card good"><div class="n">6</div><div class="l">修掉的真实缺陷</div></div>
+</div>
+
+<h2>一、逐条结果<span>基准日 2026-10-23 周五；「全天」= 只识别到日期、没有钟点</span></h2>
+<table>
+  <thead>
+    <tr><th>编号</th><th>通知原文（截断）</th><th>日期</th><th>时间</th><th>标题</th><th>地点</th><th>置信度</th><th>结果</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">N01</td><td><span class="t">📢【时光机·首届“名场面”仿拍大赏来啦！】… 📅 时间：11月1日（周日）下午 📍 地点：具体地点后续在群里通知</span></td><td class="num">11-01</td><td class="muted">全天</td><td>时光机·首届“名场面”仿拍大赏来啦</td><td class="muted">—</td><td class="num">55</td><td><span class="pill mid">待确认</span></td></tr>
+    <tr><td class="num">N02</td><td><span class="t">【第11届时光机影视协会成立大会举办通知】… ⏰时间：10月17日14:00 📍地点：新传楼一楼融媒体大厅</span></td><td class="num">10-17</td><td class="num">14:00</td><td>第11届时光机影视协会成立大会举办通知</td><td>新传楼一楼融媒体大厅</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N03</td><td><span class="t">📢【宣传部培训通知✨】@所有人 …宣传部将于10月25日（周日）晚上18:30（第十节课）📍知识产权楼321开展培训📚</span></td><td class="num">10-25</td><td class="num">18:30</td><td>宣传部培训通知</td><td>知识产权楼321</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N04</td><td><span class="t">作业布置 请从课本P22的T3… Deadline：10.19 24:00 作业邮箱：homework2463@163.com</span></td><td class="num">10-19</td><td class="num">23:59</td><td>作业布置请从课本P22的T3 5个话题中任选一个</td><td class="muted">—</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N05</td><td><span class="t">🔴请各宿舍在10月26日中午12:00前按要求完成作品提交，逾期视为无效</span></td><td class="num">10-26</td><td class="num">12:00</td><td>各宿舍按要求完成作品提交，逾期视为无效</td><td class="muted">—</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N06</td><td><span class="t">⏳ 活动时间：10月16日—10月26日</span></td><td class="num">10-16</td><td class="muted">全天</td><td>活动时间:10月16日—10月26日</td><td class="muted">—</td><td class="num">55</td><td><span class="pill mid">待确认</span></td></tr>
+    <tr><td class="num">N07</td><td><span class="t">另外，10月31日（周六）下午，【学院团委书记严梓菡老师】将给大家开一次简短的工作启动大会…时间地点另行通知~</span></td><td class="num">10-31</td><td class="muted">全天</td><td>将给大家开一次简短的工作启动大会</td><td class="muted">—</td><td class="num">55</td><td><span class="pill mid">待确认</span></td></tr>
+    <tr><td class="num">N08</td><td><span class="t">@所有人 麻烦大家填写一下11-12月进组意愿统计表…ddl今晚20:00</span></td><td class="num">10-23</td><td class="num">20:00</td><td>大家填写一下11-12月进组意愿统计表</td><td class="muted">—</td><td class="num">85</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N09</td><td><span class="t">培训时间：2026年10月21日（星期三）18:30—20:00 培训形式：腾讯会议线上培训（会议号：8999-4168-389…）</span></td><td class="num">10-21</td><td class="num">18:30</td><td>腾讯会议线上培训</td><td class="muted">—</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N10</td><td><span class="t">@所有人 国术协会明天的活动表格已发！…明日的活动时间是下午3点至下午5点半。</span></td><td class="num">10-24</td><td class="num">15:00</td><td>国术协会的活动表格已发</td><td class="muted">—</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N11</td><td><span class="t">✨指尖上的创意时光！手工社即将开展第一次手工活动啦～📅 活动时间：本周日晚19:00-22:30 📍 活动地点：学生活动中心302…</span></td><td class="num">10-25</td><td class="num">19:00</td><td>手工社即将开展第一次手工活动啦</td><td>学生活动中心302</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N12</td><td><span class="t">宣传部通知群: 阿May: 宣传部将于10月25日（周日）晚上18:30在知识产权楼321开展培训</span></td><td class="num">10-25</td><td class="num">18:30</td><td>宣传部开展培训</td><td>知识产权楼321</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+    <tr><td class="num">N13</td><td><span class="t">@所有人 中心特邀心理专家为心理委员开展专题培训，详情见文件通知。</span></td><td class="muted" colspan="4">无任何时间信号 → 直接丢弃（不产生日程）</td><td class="muted">—</td><td><span class="pill skip">丢弃</span></td></tr>
+    <tr><td class="num">N14</td><td><span class="t">3天后的中午12点半和导师碰面聊课题</span></td><td class="num">10-26</td><td class="num">12:30</td><td>导师碰面聊课题</td><td class="muted">—</td><td class="num">90</td><td><span class="pill ok">自动入库</span></td></tr>
+  </tbody>
+</table>
+<p class="note">置信度规则：≥85 自动入库；55–84 仅在手动模式下给预览确认；&lt;55 视为噪声丢弃（N13 因完全没有时间信号，在更早的入口就被丢掉）。</p>
+
+<h2>二、这轮测试修掉的 6 个真实缺陷<span>第一轮跑完是 7/14，全部是"看起来无害"的坑</span></h2>
+
+<div class="defect">
+  <h3><em>①</em>每条群通知都中招：<code>@所有人</code> 被识别成地点</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span>地点 = <code>所有人</code>（N03 / N08 / N10 三条全错）</div>
+    <div class="after"><span class="tag">修之后</span>地点 = 空；<code>@所有人</code> / <code>@全体成员</code> 一律当圈人标记剔除</div>
+  </div>
+</div>
+
+<div class="defect">
+  <h3><em>②</em>「活动时间」里的「时」被当成时间残渣删掉，标题出现空洞</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span><code>活动 间: 晚 -22</code>、<code>平 看剧的 候</code>（"时间"→"间"、"时候"→"候"）</div>
+    <div class="after"><span class="tag">修之后</span>只在前一个字符是空格/数字时才吃残留的「时/点」，且躲开「时间/时候/时光/时段」</div>
+  </div>
+</div>
+
+<div class="defect">
+  <h3><em>③</em>长通告的标题直接等于整段正文</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span><code>📢【 光机·首届“名场面”仿拍大赏来啦！】🎬 平 看剧的 候，是不是总有几个</code></div>
+    <div class="after"><span class="tag">修之后</span>① 开头 <code>【】</code> 里的中文标题优先 → 「时光机·首届“名场面”仿拍大赏来啦」；② 无角标时取首个带"活动/会议/培训/提交"这类事件词的句子，跳过宣传口号</div>
+  </div>
+</div>
+
+<div class="defect">
+  <h3><em>④</em><code>10.19 24:00</code> 整条被丢弃（作业 ddl 提醒直接没了）</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span>没有日期也没有时间 → 解析结果 null，作业 ddl 建不出日程</div>
+    <div class="after"><span class="tag">修之后</span>支持点分日期 <code>10.19</code>；<code>24:00</code> 规范化为当天 <code>23:59</code></div>
+  </div>
+</div>
+
+<div class="defect">
+  <h3><em>⑤</em><code>11-12月</code>（月份区间）被当成 11月12日</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span>日期 = <code>11-12</code>，把「今晚20:00」的 ddl 顶掉了</div>
+    <div class="after"><span class="tag">修之后</span>短横线后跟「月」的按月份区间处理，日期回退到「今晚」→ <code>10-23 20:00</code></div>
+  </div>
+</div>
+
+<div class="defect">
+  <h3><em>⑥</em>地点解析两处漏：托辞当地点、地点尾巴带动作词</h3>
+  <div class="ba">
+    <div class="before"><span class="tag">修之前</span><code>另行通知</code>（N07）、<code>具体地点后续在群里通知</code>（N01）、<code>知识产权楼321开展</code>（N12）</div>
+    <div class="after"><span class="tag">修之后</span>含「通知/后续/待定/另行/群里」的候选一律否决；动作尾巴（开展/举办/培训/集合…）剥掉；<code>📍X</code> 图标定位单独支持</div>
+  </div>
+</div>
+
+<h2>三、回归测试怎么留</h2>
+<p style="font-size:13.5px;margin:0 0 10px">
+这 14 条语料已经写成 JUnit 用例 <code>NotificationCorpusTest.kt</code> 放进工程，
+和原有 15 条规则用例一起跑：
+</p>
+<pre style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto"><code style="background:none;padding:0">./gradlew testDebugUnitTest
+# DateTimeParserTest      15 tests  0 failed
+# NotificationCorpusTest  14 tests  0 failed</code></pre>
+<p class="note">基准时间固定为 2026-10-23 14:50（周五），否则「明天/下周三/本周日」这类相对表达没有稳定期望值。</p>
+
+<h2>四、这次没变的限制<span>不是 bug，是当前设计的边界</span></h2>
+<ul class="limits">
+  <li><b>起止区间只取起点</b>：「10月16日—10月26日」记 10-16，「19:00-22:30」记 19:00。截止日要靠同段话里单独的「10月26日前」那句。</li>
+  <li><b>一段话多个日期只取第一个</b>：活动周期 + 报名截止混在一段的公告，需要在预览里确认取的是哪个。</li>
+  <li><b>只有「下午/晚上」没有钟点</b>：存全天，置信度 55，不瞎猜钟点。</li>
+  <li><b>N06 这类纯元信息行没有真标题</b>：整行只有「活动时间：10月16日—10月26日」，标题只能回退成原文片段。</li>
+</ul>
+
+<p class="note" style="margin-top:26px">
+本次同时重新编译并出包：<code>dist/smart-schedule-debug.apk</code>（5.7 MB，debug 签名）。
+<code>assembleDebug</code> / <code>testDebugUnitTest</code> / <code>lintDebug</code> 均通过，Lint 0 error / 39 warning。
+</p>
+
+</div>
+</body>
+</html>

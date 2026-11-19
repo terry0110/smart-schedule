@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      亚克力（Acrylic）配色。
+      观感由四层叠出来：底部光斑背景 → 半透明白面板 → 噪点颗粒 → 顶部高光边。
+      任何一层缺了都会退化成"半透明色块"，别单独删。
+
+      注意：所有面板色都带 alpha，底下的光斑要能透上来，否则就白做了。
+    -->
+
+    <!-- 品牌主色：蓝。按钮、时间列、强调元素 -->
+    <color name="brand">#2563EB</color>
+    <color name="brand_dark">#1D4ED8</color>
+    <color name="brand_light">#EFF6FF</color>
+    <color name="brand_grad_start">#2563EB</color>
+    <color name="brand_grad_end">#4F8EF7</color>
+
+    <!-- 页面基底：冷灰白，光斑落在这上面 -->
+    <color name="acryl_base">#E9EFF7</color>
+    <color name="acryl_base_top">#F4F8FD</color>
+    <color name="acryl_base_bottom">#E3EAF4</color>
+
+    <!--
+      背景光斑，模拟被模糊过的壁纸。数值是 alpha 百分比。
+      五个光斑同一族色（蓝 → 天蓝 → 蓝紫 → 淡粉 → 青），
+      淡粉是唯一的暖色锚点，删掉整屏会发闷。
+    -->
+    <color name="blob_blue">#705B9BFF</color>
+    <color name="blob_sky">#5C90CDF8</color>
+    <color name="blob_indigo">#5AA5B4FC</color>
+    <color name="blob_pink">#38F9A8D4</color>
+    <color name="blob_cyan">#5267E8F9</color>
+
+    <!-- 玻璃面 -->
+    <color name="glass_fill">#CCFFFFFF</color>
+    <color name="glass_fill_strong">#E8FFFFFF</color>
+    <color name="glass_edge_hi">#B8FFFFFF</color>
+    <color name="glass_edge_lo">#26FFFFFF</color>
+    <color name="glass_gloss">#59FFFFFF</color>
+    <color name="glass_inset">#7DFFFFFF</color>
+    <color name="glass_line">#4DFFFFFF</color>
+    <color name="glass_divider">#1F0F172A</color>
+    <color name="glass_ripple">#332563EB</color>
+
+    <!-- 文字 -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#546077</color>
+    <color name="text_tertiary">#8A95A8</color>
+    <color name="done_text">#A6AFBD</color>
+
+    <!-- 面与线（兼容旧引用，实际已由玻璃色接管） -->
+    <color name="surface">#FFFFFF</color>
+    <color name="bg">#E9EFF7</color>
+    <color name="stroke">#33FFFFFF</color>
+
+    <!-- 待确认 / 警告 -->
+    <color name="warn">#B45309</color>
+    <color name="warn_bg">#FDF3E3</color>
+    <color name="warn_line">#E8B25C</color>
+    <color name="pending_fill">#E0FFF7E8</color>
+
+    <!-- 据通知已取消。比"已完成"重，因为需要用户做个决定 -->
+    <color name="cancel_text">#B3261E</color>
+    <color name="cancel_fill">#FBE9E7</color>
+    <color name="pending_edge_hi">#E8B25C</color>
+    <color name="pending_edge_lo">#26E8B25C</color>
+
+    <!-- 旧版头部渐变保留，只有通知图标之类还在引用 -->
+    <color name="header_start">#1D4ED8</color>
+    <color name="header_center">#2563EB</color>
+    <color name="header_end">#4F8EF7</color>
+
+    <!-- 日程分类。选色标准：五个颜色彼此可区分、在浅色玻璃底上都有足够对比度，
+         且不抢品牌蓝（时间列）的注意力 -->
+    <color name="cat_study">#2563EB</color>
+    <color name="cat_work">#7C3AED</color>
+    <color name="cat_life">#0E9F6E</color>
+    <color name="cat_club">#DB2777</color>
+    <color name="cat_other">#64748B</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="white_70">#B3FFFFFF</color>
+    <color name="white_12">#1FFFFFFF</color>
+    <color name="icon_dark">#334155</color>
+    <!-- 多选选中态：品牌蓝，比待确认更"临时"，因为它是操作态不是数据态 -->
+    <color name="select_edge_hi">#E62563EB</color>
+    <color name="select_edge_lo">#332563EB</color>
+    <color name="select_fill">#D6EAF1FF</color>
+
+    <!-- 全屏提醒页：深色。这一页要能在锁屏上直接看清，
+         浅色磨砂在锁屏环境下对比度不够，反而看不清几点。 -->
+    <color name="remind_bg">#0B1220</color>
+    <color name="remind_bg_end">#16233A</color>
+    <color name="remind_on">#FFFFFF</color>
+    <color name="remind_muted">#94A3B8</color>
+
+</resources>

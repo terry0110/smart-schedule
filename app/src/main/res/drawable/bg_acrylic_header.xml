@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  磨砂头部条：不是一条死板的色带，而是"贴在最上面的一块玻璃"。
+  上浓下淡（越靠近内容越通透），底边一条 1dp 高光线把边界提出来。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="#B8FFFFFF"
+                android:startColor="#F0FFFFFF"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:gravity="bottom"
+        android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/glass_edge_hi" />
+        </shape>
+    </item>
+</layer-list>

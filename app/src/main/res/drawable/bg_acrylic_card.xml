@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  亚克力面板（大卡，20dp 圆角）。四层叠出来的，顺序不能乱：
+
+  1. 描边：竖向渐变，顶边亮、底边几乎透明 —— 这是"玻璃边缘反光"，最出效果的一层
+  2. 主体：内缩 1dp 的 80% 白，背景光斑从这层透上来
+  3. 顶部反光：从顶部 35% 白渐隐到透明，玻璃的斜向高光
+  4. 噪点：颗粒纹理，亚克力和"半透明色块"的唯一区别就在这
+
+  噪点层内缩 2dp，避开直角：layer-list 裁不了圆角，只能靠内缩藏住边。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="@color/glass_edge_lo"
+                android:startColor="@color/glass_edge_hi"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="19dp" />
+            <solid android:color="@color/glass_fill" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="19dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="#00FFFFFF"
+                android:startColor="@color/glass_gloss"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <bitmap
+            android:filter="false"
+            android:src="@drawable/noise_tile"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

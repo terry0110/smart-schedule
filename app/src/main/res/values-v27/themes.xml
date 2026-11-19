@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      API 27 起才有 windowLightNavigationBar。
+      放在 values-v27 里单独覆盖，避免在低版本上引用了不存在的属性。
+      不开的话，浅色页面底部会是三个白图标，等于看不见。
+    -->
+    <style name="Theme.SmartSchedule" parent="Theme.SmartSchedule.Base">
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  默认禁止明文 HTTP。
+
+  1.34 起应用已经不再申请 INTERNET 权限，任何网络请求在系统层就被拦掉，
+  这份配置成了第二道锁：万一将来有人加回网络代码，也不会默认允许明文。
+  只对本机回环地址开口子，方便自己搭的本地服务调试。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

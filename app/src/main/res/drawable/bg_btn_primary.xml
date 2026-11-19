@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主按钮：青色渐变 + 顶部反光 + 按压水波 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/glass_ripple">
+    <item>
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="14dp" />
+                    <gradient
+                        android:angle="0"
+                        android:endColor="@color/brand_grad_end"
+                        android:startColor="@color/brand_grad_start"
+                        android:type="linear" />
+                </shape>
+            </item>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="14dp" />
+                    <gradient
+                        android:angle="270"
+                        android:endColor="#00FFFFFF"
+                        android:startColor="#4DFFFFFF"
+                        android:type="linear" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</ripple>
