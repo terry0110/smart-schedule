@@ -223,7 +223,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── BootReceiver.kt          37 行    开机 / 应用更新后重排提醒 + 补发
 │   └── NotifyAction.kt          65 行    action / extras 常量（含 LISTENER_STATE）
 ├── ui/
-│   ├── MainActivity.kt        1483 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
+│   ├── MainActivity.kt        1553 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      339 行    归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部
 │   ├── SettingsActivity.kt     724 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
@@ -836,7 +836,7 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 
 ### 8.2 主界面结构
 
-`activity_main.xml` + `MainActivity.kt`（1483 行，最大的文件，改之前先读完整）：
+`activity_main.xml` + `MainActivity.kt`（1553 行，最大的文件，改之前先读完整）：
 
 - 顶部输入框 + "识别"按钮 → `doParse()` → `DateTimeParser` → `showPreview()` 弹出编辑面板
 - 列表用 `RecyclerView` + `EventAdapter`，行数据是 `Row`（标题 + 时间 + 状态 + 是否选中）
@@ -848,6 +848,9 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 - 长按进入多选模式 → `enterSelection()` / `toggleSelectAll()` / `confirmDeleteSelected()`
 - 主列表数据源是 `Repo.active()`，不再包含归档条目
 - 编辑面板是 `BottomSheetDialog` + `sheet_preview.xml`（`createSheet()` 构建）
+- 结束时间用 `btnEnd` 选择：`previewDurationMs` 保存时长（0 = 到当天结束），
+  按钮显示「结束：HH:mm」或「结束：全天」；点击弹 15分钟 / 30分钟 / 1h / 2h / 全天
+  五档，识别出的区间不在这几档时不预选，但选任意一档都会覆盖。全天勾选时按钮置灰
 - 改期待办（v1.39）：`ReviseInbox` 有内容时列表上方出现「有 N 条改期需要确认」横幅；
   点开 → 选候选 → 确认时间/地点，或进编辑面板手动补。进程重启卡片清空（通知仍在）
 - 检索（v1.33）：标题栏放大镜 → `openSearch()`；检索条占标题行位置、输入卡同步收起；

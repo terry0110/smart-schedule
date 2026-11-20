@@ -67,6 +67,8 @@ class MainActivity : AppCompatActivity() {
 
     private var previewDate: LocalDate? = null
     private var previewTime: LocalTime? = null
+    // 面板上的结束时长；0 = 没有明确结束时间（按"到当天结束"处理）
+    private var previewDurationMs: Long = 0L
     private var lastRaw: String = ""
 
     /** 列表当前筛选的分类；null = 全部。只在内存里，重开应用回到"全部" */
@@ -414,6 +416,7 @@ class MainActivity : AppCompatActivity() {
         val dt = TimeFmt.toDateTime(r.startAt)
         previewDate = dt.toLocalDate()
         previewTime = dt.toLocalTime()
+        previewDurationMs = if (r.hasTime && r.endAt > r.startAt) r.endAt - r.startAt else 0L
 
         vb.etTitle.setText(r.title)
         vb.etLocation.setText(r.location.orEmpty())
@@ -422,6 +425,7 @@ class MainActivity : AppCompatActivity() {
         vb.btnTime.alpha = if (r.hasTime) 1f else 0.45f
         updateDateButton(vb)
         updateTimeButton(vb)
+        updateEndButton(vb)
 
         // 新建默认跟随设置
         applyEventStyle(vb, RemindStyle.FOLLOW_DEFAULT)
@@ -470,7 +474,7 @@ class MainActivity : AppCompatActivity() {
         vb.btnCancel.setOnClickListener { dlg.dismiss() }
         vb.btnSave.setOnClickListener {
             vb.btnSave.isEnabled = false
-            saveFromSheet(vb, r) { ok ->
+            saveFromSheet(vb) { ok ->
                 vb.btnSave.isEnabled = true
                 if (ok) dlg.dismiss()
             }
@@ -500,6 +504,11 @@ class MainActivity : AppCompatActivity() {
         val dt = TimeFmt.toDateTime(event.startAt)
         previewDate = dt.toLocalDate()
         previewTime = dt.toLocalTime()
+        previewDurationMs = if (event.hasTime && event.endAt > event.startAt) {
+            event.endAt - event.startAt
+        } else {
+            0L
+        }
 
         vb.tvSheetTitle.setText(R.string.editor_title)
         vb.etTitle.setText(event.title)
@@ -509,6 +518,7 @@ class MainActivity : AppCompatActivity() {
         vb.btnTime.alpha = if (event.hasTime) 1f else 0.45f
         updateDateButton(vb)
         updateTimeButton(vb)
+        updateEndButton(vb)
 
         // 编辑时回显这条自己选的方式；老数据是 -1（跟随设置）
         applyEventStyle(vb, event.remindStyle)
@@ -795,9 +805,11 @@ class MainActivity : AppCompatActivity() {
         vb.cbAllDay.setOnCheckedChangeListener { _, checked ->
             vb.btnTime.isEnabled = !checked
             vb.btnTime.alpha = if (checked) 0.45f else 1f
+            updateEndButton(vb)
         }
         vb.btnDate.setOnClickListener { pickDate(vb, ::updateDateButton) }
         vb.btnTime.setOnClickListener { pickTime(vb, ::updateTimeButton) }
+        vb.btnEnd.setOnClickListener { pickEnd(vb) }
 
         // 单条通知方式：勾选框管"跟不跟默认"，四档按钮管"跟不跟、跟哪档"。
         // 点任意一档就等于明确表态要覆盖默认，所以顺手把勾去掉 —— 不然用户点了按钮
@@ -927,8 +939,8 @@ class MainActivity : AppCompatActivity() {
         val timeChanged = EventEdit.shouldResetDone(
             old.startAt, old.hasTime, startAt, hasTime
         )
-        // 时长跟着开始时间走：原来有结束时间就保持同样时长；原来没有就保持 0
-        val duration = (old.endAt - old.startAt).takeIf { it > 0 } ?: 0L
+        // 结束时间以面板上的选择为准（打开面板时按原时长初始化）
+        val duration = previewDurationMs
 
         val updated = old.copy(
             title = title,
@@ -982,6 +994,7 @@ class MainActivity : AppCompatActivity() {
             { _, y, m, d ->
                 previewDate = LocalDate.of(y, m + 1, d)
                 refresh(vb)
+                updateEndButton(vb)
             },
             cur.year, cur.monthValue - 1, cur.dayOfMonth
         ).show()
@@ -995,6 +1008,7 @@ class MainActivity : AppCompatActivity() {
                 previewTime = LocalTime.of(h, mi)
                 vb.cbAllDay.isChecked = false
                 refresh(vb)
+                updateEndButton(vb)
             },
             cur.hour, cur.minute, true
         ).show()
@@ -1009,11 +1023,69 @@ class MainActivity : AppCompatActivity() {
         vb.btnTime.text = String.format(Locale.US, "%02d:%02d", t.hour, t.minute)
     }
 
+    /**
+     * 结束时间按钮：有明确时长就显示具体时刻（跨天标"次日"），
+     * 否则显示"结束：全天"（等价于原来的"到当天结束"）。
+     */
+    private fun updateEndButton(vb: SheetPreviewBinding) {
+        if (vb.cbAllDay.isChecked) {
+            vb.btnEnd.isEnabled = false
+            vb.btnEnd.alpha = 0.45f
+            vb.btnEnd.text = getString(R.string.end_all_day)
+            return
+        }
+        vb.btnEnd.isEnabled = true
+        vb.btnEnd.alpha = 1f
+        if (previewDurationMs <= 0) {
+            vb.btnEnd.text = getString(R.string.end_all_day)
+            return
+        }
+        val start = LocalDateTime.of(
+            previewDate ?: LocalDate.now(),
+            previewTime ?: LocalTime.of(9, 0)
+        )
+        val end = start.plusSeconds(previewDurationMs / 1000)
+        val hm = String.format(Locale.US, "%02d:%02d", end.hour, end.minute)
+        val label = if (end.toLocalDate() != start.toLocalDate()) "次日 $hm" else hm
+        vb.btnEnd.text = getString(R.string.end_at, label)
+    }
+
+    /**
+     * 结束时间选择：15 分钟 / 30 分钟 / 1h / 2h / 全天。
+     * 识别出的区间不在这几档时（如 2h30m）不预选，但点选任意一档都会覆盖。
+     */
+    private fun pickEnd(vb: SheetPreviewBinding) {
+        if (vb.cbAllDay.isChecked) return
+        val labels = arrayOf(
+            getString(R.string.duration_15m),
+            getString(R.string.duration_30m),
+            getString(R.string.duration_1h),
+            getString(R.string.duration_2h),
+            getString(R.string.duration_all_day)
+        )
+        val values = longArrayOf(
+            15 * 60_000L,
+            30 * 60_000L,
+            60 * 60_000L,
+            120 * 60_000L,
+            0L
+        )
+        val checked = values.indexOfFirst { it == previewDurationMs }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.end_pick_title)
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                previewDurationMs = values[which]
+                updateEndButton(vb)
+                d.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     // ---------------- 保存 ----------------
 
     private fun saveFromSheet(
         vb: SheetPreviewBinding,
-        r: DateTimeParser.Result,
         done: (Boolean) -> Unit
     ) {
         val date = previewDate
@@ -1028,11 +1100,9 @@ class MainActivity : AppCompatActivity() {
         val location = vb.etLocation.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         val startAt = LocalDateTime.of(date, time)
             .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        // 原文写了结束时间（"六点到九点"）就按同样时长带到面板上的开始时间；
-        // 只写开始时间 / 全天的保持 0，冲突检测按"开始到当天结束"兜底。
-        // 之前这里漏了 endAt，手动录入的区间全被当成"开始到当天结束"，
-        // 表现就是 v1.48 那套"整段都算冲突"。
-        val duration = (r.endAt - r.startAt).takeIf { it > 0 } ?: 0L
+        // 结束时间跟着面板上选的时长走：识别出区间时已按原区间初始化，
+        // 用户改成 15 分钟 / 2h / 全天 时也覆盖同一个值
+        val duration = previewDurationMs
 
         val event = Event(
             title = title,

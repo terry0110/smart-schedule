@@ -129,13 +129,38 @@
                 app:strokeColor="#4D2563EB" />
         </LinearLayout>
 
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/cbAllDay"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="@string/label_all_day"
-            android:textSize="13sp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/cbAllDay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_all_day"
+                android:textSize="13sp" />
+
+            <!-- 结束时间：有明确结束时间就显示时刻，点开仍可选时长覆盖 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEnd"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:maxLines="1"
+                android:text="@string/end_all_day"
+                android:textColor="@color/brand_dark"
+                android:textSize="13sp"
+                app:cornerRadius="12dp"
+                app:strokeColor="#4D2563EB" />
+        </LinearLayout>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Input.NoOutline"
