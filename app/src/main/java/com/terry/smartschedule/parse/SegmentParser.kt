@@ -44,11 +44,24 @@ object SegmentParser {
         //
         //    但不是所有段都能独当一面：「明天下午3点」单看只有时间，事件名在别的消息里。
         //    所以只有标题**看着像件事**才算数，否则先记着、继续找。
+        //
+        //    优先级（v1.57）：**带钟点的结果优先于全天**。
+        //    群里常见「明天开会」和「下午六点到九点」分两条发，如果先碰到
+        //    「明天开会」就当成干净结果返回，整条通知会变成"全天"，时间被丢掉。
+        var cleanAllDay: DateTimeParser.Result? = null
+        var timedFallback: DateTimeParser.Result? = null
         var fallback: DateTimeParser.Result? = null
         for (seg in usable) {
             val r = parse(seg)?.takeIf { it.dateSource != DateTimeParser.DateSource.NONE }
                 ?: continue
-            if (isCleanTitle(r.title)) return r
+            if (r.hasTime) {
+                if (isCleanTitle(r.title)) return r
+                if (timedFallback == null || r.confidence > timedFallback.confidence) {
+                    timedFallback = r
+                }
+            } else if (isCleanTitle(r.title) && cleanAllDay == null) {
+                cleanAllDay = r
+            }
             if (fallback == null || r.confidence > fallback.confidence) fallback = r
         }
 
@@ -57,10 +70,24 @@ object SegmentParser {
         if (trimmed.size > 1) {
             val whole = parse(trimmed.joinToString(" "))
                 ?.takeIf { it.dateSource != DateTimeParser.DateSource.NONE }
-            if (whole != null && isCleanTitle(whole.title)) return whole
-            if (whole != null && fallback == null) fallback = whole
+            if (whole != null) {
+                if (whole.hasTime) {
+                    // 有时间优先于全天；标题拼脏了就借用逐段里干净的那条
+                    if (isCleanTitle(whole.title)) return whole
+                    if (cleanAllDay != null) {
+                        return whole.copy(
+                            title = cleanAllDay.title,
+                            location = cleanAllDay.location ?: whole.location
+                        )
+                    }
+                    return whole
+                }
+                if (isCleanTitle(whole.title)) return whole
+                if (cleanAllDay != null) return cleanAllDay
+                if (fallback == null || whole.confidence > fallback.confidence) fallback = whole
+            }
         }
-        return fallback
+        return timedFallback ?: cleanAllDay ?: fallback
     }
 
     /**

@@ -112,6 +112,21 @@ class TimeRangeParseTest {
     }
 
     @Test
+    fun `没有时段词时连接号本身也能当时间上下文`() {
+        // 中文数字时间原本要靠"下午/开会/到"判断是不是钟点；
+        // 「至」「—」「~」这些连接号同样是强信号，否则整条会退化成全天
+        val a = parse("明天六点至九点")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 6, 0), ldt(a.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 9, 0), ldt(a.endAt))
+        val b = parse("明天六点—九点")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 6, 0), ldt(b.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 9, 0), ldt(b.endAt))
+        val c = parse("明天六点~九点")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 6, 0), ldt(c.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 9, 0), ldt(c.endAt))
+    }
+
+    @Test
     fun `纯时间描述不会被当成改期通知`() {
         // 抓取链路会先问「是不是改期/取消」；这里如果误判成 Move，
         // 日程会被改到别的条目上，而不是新建

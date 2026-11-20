@@ -7,7 +7,9 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /**
  * 覆盖"从通知拆出来的多段文本里挑出真日程"这段逻辑。
@@ -140,4 +142,29 @@ class SegmentParserTest {
         assertTrue("应该是全天日程", !r.hasTime)
         assertTrue("标题应该保住，实际：${r.title}", r.title.contains("开会"))
     }
+
+    @Test
+    fun `日期消息在前时间消息在后也优先带时间`() {
+        // 群里常见「明天开会」和「下午六点到九点」分两条发。
+        // 先碰到「明天开会」时如果直接返回，整条会变成全天，时间就丢了。
+        val r = SegmentParser.pick(listOf("明天开会", "下午六点到九点")) { parse(it) }
+        assertNotNull(r)
+        assertTrue("应该按带钟点处理，实际 ${r!!.hasTime}", r.hasTime)
+        assertEquals(18, r.start.hour)
+        assertEquals(21, endHour(r.endAt))
+        assertTrue("标题应该是事件名，实际：${r.title}", r.title.contains("开会"))
+    }
+
+    @Test
+    fun `时间消息在前日期消息在后也能拼起来`() {
+        val r = SegmentParser.pick(listOf("下午六点到九点", "明天开会")) { parse(it) }
+        assertNotNull(r)
+        assertTrue(r!!.hasTime)
+        assertEquals(18, r.start.hour)
+        assertEquals(21, endHour(r.endAt))
+        assertTrue("标题应该是事件名，实际：${r.title}", r.title.contains("开会"))
+    }
+
+    private fun endHour(ms: Long): Int =
+        LocalDateTime.ofInstant(Instant.ofEpochMilli(ms), ZoneId.systemDefault()).hour
 }
