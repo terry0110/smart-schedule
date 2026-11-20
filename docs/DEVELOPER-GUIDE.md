@@ -84,8 +84,8 @@ cd "D:/WorkBuddy/outputs/smart-schedule-android"
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
-./pack.sh                           # 日常出包：只出 debug，复制到 dist/ 并按版本号命名
-./pack.sh release                   # 只在明确要求时用（见第 2 节铁律）
+./pack.sh                           # 本机调试出包：只出 debug，不上传
+./pack.sh release                   # 发布出包：GitHub Releases 只上传这个（见第 2 节铁律）
 ```
 
 `apksigner.bat` 的 `JAVA_HOME` **必须正斜杠**，反斜杠会报 "JAVA_HOME is not set"——
@@ -225,7 +225,7 @@ app/src/main/java/com/terry/smartschedule/
 ├── ui/
 │   ├── MainActivity.kt        1482 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
-│   ├── SettingsActivity.kt     698 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
+│   ├── SettingsActivity.kt     724 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
 │   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
@@ -883,7 +883,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 为什么"跟随设置"做成勾选框而不是第五个按钮：五个按钮挤一行会把文字截断。
 
-### 8.4 设置页（`SettingsActivity`，698 行）
+### 8.4 设置页（`SettingsActivity`，724 行）
 
 分区顺序：通知使用权 → 自动记录 → 系统日历同步 → 默认通知方式 → 提醒提前量 →
 保活 → 诊断 → 危险操作（清空数据）。

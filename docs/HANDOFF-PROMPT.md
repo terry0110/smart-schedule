@@ -29,7 +29,8 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 
 ## 出包规矩
 
-- 日常只用 `./pack.sh`，它默认只出 debug（约 4.8M）。**不要顺手出 release。**
+- 发布到 GitHub Releases **只上传 release 变体**（`./pack.sh release`）；
+  debug 只用于本机调试，不发布。
 - release 和 debug 签名不同，不能覆盖安装，切换会丢日程数据 —— 而这个应用还没有导出 / 导入。
 - 每次出包先升 `app/build.gradle.kts` 里的 `versionCode` / `versionName`，
   `pack.sh` 会自动读出来命名并追加 `dist/HISTORY.md`（那个文件是脚本维护的，别手改）。
@@ -46,7 +47,7 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 4. **加数据库字段走六步**：`CREATE TABLE` 加列（带 DEFAULT）→ `DB_VERSION` +1 →
    `onUpgrade` 加 `if (oldVersion < N)` 分支 → `Event.toValues()` → `Repo.toEvent()` →
    检查有没有 SELECT 白名单。
-5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**335 条全绿、0 error** 才算完事。
+5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**354 条全绿、0 error** 才算完事。
 
 ## 当前状态（2026-11-20）
 
