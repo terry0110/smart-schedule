@@ -103,6 +103,24 @@ class SegmentParserTest {
     }
 
     @Test
+    fun `中文数字的纯时间标题也不抢标题`() {
+        // 中文数字不是 isDigit()，以前会被当成"干净标题"，把事件名挤掉
+        val r = SegmentParser.pick(listOf("明天下午六点到九点", "部门例会")) { parse(it) }
+        assertNotNull(r)
+        assertEquals(24, r!!.start.dayOfMonth)
+        assertEquals(18, r.start.hour)
+        assertTrue("标题应该是事件名，实际：${r.title}", r.title.contains("例会"))
+    }
+
+    @Test
+    fun `只有中文数字时间时仍然建出来`() {
+        val r = SegmentParser.pick(listOf("明天下午六点到九点")) { parse(it) }
+        assertNotNull("只有时间也应该能被挑出来", r)
+        assertEquals(18, r!!.start.hour)
+        assertTrue("结束时间应该保留", r.endAt > r.startAt)
+    }
+
+    @Test
     fun `短段落被跳过不浪费解析`() {
         val calls = mutableListOf<String>()
         SegmentParser.pick(listOf("哈", "好的", "明天9点开会")) { s ->

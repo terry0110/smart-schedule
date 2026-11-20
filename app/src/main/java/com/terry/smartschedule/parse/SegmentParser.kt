@@ -60,13 +60,38 @@ object SegmentParser {
     }
 
     /**
+     * 日期 / 时段 / 钟点词。标题里只剩这些，就说明它是时间残渣，不是事件名。
+     *
+     * `isDigit()` 只认 0-9，所以「明天下午六点到九点」会被当成干净标题 ——
+     * 群聊里"时间一条、事件名一条"时，选中时间那条，建出来的日程标题就是一串时间。
+     * 这里按和阿拉伯数字同一口径处理：把时间词剥掉后，至少还得剩 2 个字。
+     */
+    private val RE_TITLE_TIME_NOISE = Regex(
+        """今天|明天|后天|大后天|今晚|明晚|今早|明早|本周|这周|下周|周末""" +
+            """|周[一二三四五六日天]|星期[一二三四五六日天]|礼拜[一二三四五六日天]""" +
+            """|凌晨|清晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|夜晚""" +
+            """|[一二两三四五六七八九十\d]{1,3}\s*[点时](?:半|[一二两三四五六七八九十\d]{1,3}\s*分?)?"""
+    )
+
+    /** 行首的发送人前缀：「张三：」 */
+    private val RE_SPEAKER_PREFIX = Regex("""^[^\s:：]{1,12}\s*[:：]\s*""")
+
+    /**
      * 标题像不像"一件事的名字"。
      *
-     * 只排除一种情况：**标题里带数字**。那多半是没挖干净的时间残渣 ——
-     * 「明天下午3」这种。真正的事件名（开会 / 年级大会 / 交材料）不含数字。
+     * 排除两种情况：
+     * - 标题里带阿拉伯数字 —— 多半是没挖干净的时间残渣（「明天下午3」这种）；
+     * - 剥掉时间词后剩不下东西 —— 「明天下午六点到九点」「明天到九点」这种。
+     * 真正的事件名（开会 / 年级大会 / 交材料 / 签到）不受影响。
      *
      * 「3号会议室」这类会被误判成残渣，但代价很小：退到整体解析而已。
      */
-    private fun isCleanTitle(title: String): Boolean =
-        title.length >= 2 && title.none { it.isDigit() }
+    private fun isCleanTitle(title: String): Boolean {
+        if (title.length < 2) return false
+        if (title.any { it.isDigit() }) return false
+        val body = RE_SPEAKER_PREFIX.replace(title, "")
+        val left = RE_TITLE_TIME_NOISE.replace(body, "")
+            .filterNot { it.isWhitespace() || it in "，,。.、;；:：-—_~～·!！?？\"'“”‘’（）()【】[]" }
+        return left.length >= 2
+    }
 }

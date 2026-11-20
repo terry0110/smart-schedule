@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.51（versionCode 51）** · 包名 `com.terry.smartschedule` · 337 个单测 · DB v10
+> 当前版本：**v1.52（versionCode 52）** · 包名 `com.terry.smartschedule` · 340 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 51        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.51"
+versionCode = 52        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.52"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -192,7 +192,7 @@ app/src/main/java/com/terry/smartschedule/
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
 │   ├── DateTimeParser.kt       992 行    ★ 中文日程文本解析器，纯 Kotlin，全套正则
-│   ├── SegmentParser.kt         72 行    多段文本里挑一条能用的解析结果
+│   ├── SegmentParser.kt         97 行    多段文本里挑一条能用的解析结果
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
 │   ├── Revise.kt               440 行    ★ 认「改期/取消/换地点/时间有变」+ 挑改哪一条（ReviseTest 守着）
@@ -201,7 +201,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 752 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 821 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -869,7 +869,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `AdversarialInputTest` / `RobustnessTest` | 刁钻/畸形输入不崩 |
 | `DayOnlyDateTest` | 只有"几号"的日期推断 |
 | `TitleNotUsedTest` / `SenderIdTitleTest` | 会话名/发送人不许变标题 |
-| `SegmentParserTest` | 多段选优 |
+| `SegmentParserTest` | 多段选优：时间和事件分成两段时拼整体、中文数字时间标题不抢事件名、只有时间仍能建 |
 | `ReminderPlanTest` | 什么时候响（含"提醒点已过"那类） |
 | `RemindStyleTest` | 四档的存储值稳定性、单条覆盖全局、脏值兜底 |
 | `OrphanRemindTest` | 孤儿提醒该撤哪些 + 每档渠道都被认定为提醒本体 |
@@ -885,7 +885,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断 |
 | `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段/跳过已改期条目 |
 | `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
-| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期） |
+| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期）；纯时间描述不会被误判成改期 |
 
 ### 10.2 写新测试的规矩
 
@@ -906,7 +906,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.51-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.52-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1048,6 +1048,9 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
    用户看到的都是"我点了取消，日程还在"，比不做更糟。
    现在 `handleNotification` 里先算 `val revise = Revise.detect(joined)`，
    `isRevision` 为真时跳过这两道门，但**白名单、长度、文件/资费类过滤仍然照跑**。
+   v1.52 修过一次回退：代码里曾多留了一份粗筛排在最前面（没有 `!isRevision`），
+   把「会不开了」这类不带时间词的取消/换地点通知直接挡掉。现在只保留
+   `!isRevision && !looksLikeSchedule(...)` 这一处。
 2. **端到端必须用 `tools/notify-sim` 验**，不要只信单测。
    它有两个 flavor：`fakewx`（`applicationId = com.tencent.mm`，伪装微信）和
    `other`（普通包名，用来验白名单真的拦得住）。

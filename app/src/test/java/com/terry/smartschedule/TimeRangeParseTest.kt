@@ -3,6 +3,7 @@ package com.terry.smartschedule
 import com.terry.smartschedule.data.Event
 import com.terry.smartschedule.data.EventConflict
 import com.terry.smartschedule.parse.DateTimeParser
+import com.terry.smartschedule.parse.Revise
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -82,6 +83,13 @@ class TimeRangeParseTest {
         val r = parse("明天下午六点到九点开会")
         assertEquals(LocalDateTime.of(2026, 11, 20, 18, 0), ldt(r.startAt))
         assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(r.endAt))
+    }
+
+    @Test
+    fun `纯时间描述不会被当成改期通知`() {
+        // 抓取链路会先问「是不是改期/取消」；这里如果误判成 Move，
+        // 日程会被改到别的条目上，而不是新建
+        assertTrue(Revise.detect("明天下午六点到九点", now) is Revise.Verdict.None)
     }
 
     @Test

@@ -186,12 +186,6 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
-        // 不像日程的闲聊直接放过，日志留给真正"该识别却没识别"的
-        if (!looksLikeSchedule(joined)) {
-            verboseLog(app, "不含任何时间线索：$joined")
-            return
-        }
-
         // 先问一句「这是不是改期/取消」。
         //
         // 必须在粗筛和闲聊判断**之前**：
@@ -199,6 +193,9 @@ class NotificationCaptureService : NotificationListenerService() {
         //   会被 isSmallTalk 当成聊天丢掉 —— 实测就是这样，取消通知完全没反应；
         // - 「会不开了」这种连时间词都没有的，会被 looksLikeSchedule 先拦掉。
         // 两种情况用户看到的都是"日程照旧留着"，比不做还糟。
+        //
+        // 这里曾经还剩一份粗筛副本排在最前面，把「会不开了」这类没有时间词的
+        // 取消/换地点通知直接挡掉了 —— 和上面这段注释正好相反。已删除。
         val revise = Revise.detect(joined)
         val isRevision = revise is Revise.Verdict.Move ||
             revise is Revise.Verdict.Cancel ||
