@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.49（versionCode 49）** · 包名 `com.terry.smartschedule` · 335 个单测 · DB v10
+> 当前版本：**v1.50（versionCode 50）** · 包名 `com.terry.smartschedule` · 335 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 48        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.48"
+versionCode = 50        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.50"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -493,6 +493,11 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 手动添加命中时弹「可能有冲突」，可选「仍要添加」。
 已结束 / 已归档 / 已完成 / 已取消的日程不参与；待确认的日程参与。
 合并截断版/完整版时也会再查一次，避免合并后撞上第三条；退回待确认会撤旧闹钟。
+
+手动录入（首页输入 → 预览面板 → 保存）必须把 `r.endAt` 一起落库：
+`saveFromSheet` 用 `r.endAt - r.startAt` 算时长，再换到用户实际选的开始时间
+（`endAt = startAt + duration`）。漏掉这一步，手动建的「六点到九点」会退化成
+"开始到当天结束"，冲突表现和 v1.48 一样 —— v1.50 修的就是这里。
 
 ### 5.2 白名单（`WatchedApps`）
 
@@ -896,7 +901,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.49-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.50-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

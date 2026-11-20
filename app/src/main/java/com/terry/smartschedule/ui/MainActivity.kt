@@ -1002,11 +1002,17 @@ class MainActivity : AppCompatActivity() {
         val location = vb.etLocation.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         val startAt = LocalDateTime.of(date, time)
             .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // 原文写了结束时间（"六点到九点"）就按同样时长带到面板上的开始时间；
+        // 只写开始时间 / 全天的保持 0，冲突检测按"开始到当天结束"兜底。
+        // 之前这里漏了 endAt，手动录入的区间全被当成"开始到当天结束"，
+        // 表现就是 v1.48 那套"整段都算冲突"。
+        val duration = (r.endAt - r.startAt).takeIf { it > 0 } ?: 0L
 
         val event = Event(
             title = title,
             startAt = startAt,
             hasTime = hasTime,
+            endAt = if (hasTime && duration > 0) startAt + duration else 0L,
             location = location,
             note = lastRaw.takeIf { it.isNotBlank() }?.take(500),
             source = Event.SRC_MANUAL,
