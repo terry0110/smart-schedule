@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.59（versionCode 59）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
+> 当前版本：**v1.60（versionCode 60）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 59        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.59"
+versionCode = 60        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.60"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -225,7 +225,7 @@ app/src/main/java/com/terry/smartschedule/
 ├── ui/
 │   ├── MainActivity.kt        1287 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
-│   ├── SettingsActivity.kt     649 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
+│   ├── SettingsActivity.kt     656 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
 │   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
@@ -600,6 +600,22 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 排查"服务显示已连接、通知却毫无反应"时，第一步就是开它。
 
+### 5.8 「重新连接」为什么不能保证成功（v1.60）
+
+设置页的「重新连接监听服务」调的是 `NotificationListenerService.requestRebind()`。
+它只是向系统**发一个请求**：系统可以选择不理会，很多国产 ROM 也确实会忽略。
+应用没有公开 API 能自己启动一个已被系统解绑的监听服务（直接 `bindService` 也没用，
+这个绑定只能由系统发起）。
+
+所以 UI 不能把「重连成功」当成按钮的必然结果：
+
+- 点一次后只等约 2 秒；没连上就弹说明，并提供「去系统设置」按钮
+- 真正可靠的办法是到系统「通知使用权」详情页，把本应用的开关**关掉、等一秒、再打开**
+  —— 系统会重新绑定并回调 `onListenerConnected`
+- 从系统设置返回后，`startWatch()` 观察 12 秒，给慢机型留绑定时间
+
+不要再加"自动反复重连"：连点会打断系统正在进行的绑定，反而更连不上。
+
 ---
 
 ## 6. 解析层（`DateTimeParser`，1000 行，最需要小心的地方）
@@ -854,7 +870,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 为什么"跟随设置"做成勾选框而不是第五个按钮：五个按钮挤一行会把文字截断。
 
-### 8.4 设置页（`SettingsActivity`，649 行）
+### 8.4 设置页（`SettingsActivity`，656 行）
 
 分区顺序：通知使用权 → 自动记录 → 系统日历同步 → 默认通知方式 → 提醒提前量 →
 保活 → 诊断 → 危险操作（清空数据）。
@@ -945,7 +961,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.59-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.60-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

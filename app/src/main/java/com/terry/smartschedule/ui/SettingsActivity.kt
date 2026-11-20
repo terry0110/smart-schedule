@@ -264,7 +264,8 @@ class SettingsActivity : AppCompatActivity() {
         override fun run() {
             updateListenerState()
             val running = ServiceHealth.status(this@SettingsActivity) == ListenerStatus.RUNNING
-            if (running || ++watchTicks >= 6) {
+            // 从系统设置回来时，系统绑定可能要几秒；等 12 秒再放弃
+            if (running || ++watchTicks >= 15) {
                 watching = false
             } else {
                 ui.postDelayed(this, 800)
@@ -394,7 +395,7 @@ class SettingsActivity : AppCompatActivity() {
             showRebindFailedDialog()
             return
         }
-        toast("已请求重连，给系统 4 秒左右")
+        toast("已向系统请求重连…")
 
         ui.postDelayed(reconnectPoll, 900)
     }
@@ -409,8 +410,10 @@ class SettingsActivity : AppCompatActivity() {
                 return
             }
             reconnectTicks++
-            if (reconnectTicks < 5) {
-                ui.postDelayed(this, 900)
+            // requestRebind 只是请求：系统不理会时等再久也没用，尽快把用户引到
+            // 真正能重绑的地方（通知使用权开关），别让他盯着"正在连接"干等
+            if (reconnectTicks < 2) {
+                ui.postDelayed(this, 700)
             } else {
                 reconnecting = false
                 updateListenerState()
@@ -430,16 +433,20 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * 重连没生效时的出路。
-     * requestRebind 只是"请求"，系统可以不理；能强制重绑的只有关开授权。
+     *
+     * Android 没有公开 API 能让应用自己"启动"一个已被系统解绑的
+     * NotificationListenerService：requestRebind 只是向系统发请求，
+     * 系统可以不理，很多国产 ROM 也确实不理。能强制重绑的只有关开授权。
      */
     private fun showRebindFailedDialog() {
         MaterialAlertDialogBuilder(this)
-            .setTitle("系统的重连请求没有生效")
+            .setTitle("需要到系统设置里重连")
             .setMessage(
-                "「重新连接」只是向系统发一个请求，系统可以选择不理会，在部分机型上时灵时不灵。\n\n" +
-                    "真正能强制重绑的办法只有一个：打开系统的通知使用权页面，" +
-                    "把「智能日程」的开关关掉，等一秒，再打开。\n\n" +
-                    "要不要现在跳过去？"
+                "「重新连接」只能向系统发一个请求，系统可以不理；" +
+                    "应用也没有权限自己启动通知监听服务。\n\n" +
+                    "可靠的步骤：打开系统的「通知使用权」页面，" +
+                    "把「智汇日程」的开关**关掉，等一秒，再打开**。\n\n" +
+                    "要现在跳过去吗？"
             )
             .setNegativeButton("稍后", null)
             .setPositiveButton("去系统设置") { _, _ -> openListenerSettings() }
