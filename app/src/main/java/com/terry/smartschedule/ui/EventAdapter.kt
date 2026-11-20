@@ -130,8 +130,12 @@ class EventAdapter(
             val ctx = b.root.context
             val pending = event.pending
 
-            // 时间列：有具体时间显示时间，否则显示"全天"
+            // 时间列：有具体时间显示时间，否则显示"全天"；
+            // 原文写了结束时间就在下面补一行"至21:00"，让用户能直接看出时长
             b.tvTime.text = TimeFmt.timeLabel(event.startAt, event.hasTime)
+            val endLabel = TimeFmt.endLabel(event.startAt, event.endAt, event.hasTime)
+            b.tvDay.text = endLabel
+            b.tvDay.visibility = if (endLabel != null) View.VISIBLE else View.GONE
             // 检索时把命中的词标出来：命中点在原文/地点里时，光看标题根本不知道为什么这条被搜出来
             b.tvTitle.text = SearchHighlight.mark(ctx, event.title, highlight)
 

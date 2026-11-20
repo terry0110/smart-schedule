@@ -171,7 +171,7 @@ object Notifications {
             vibrateOnly -> CH_REMIND_VIBRATE
             else -> CH_REMIND
         }
-        val body = TimeFmt.summary(event.startAt, event.hasTime, event.location)
+        val body = TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location)
         val fullScreen = fullScreenIntent(c, event.id)
 
         val builder = NotificationCompat.Builder(c, channel)
@@ -231,7 +231,7 @@ object Notifications {
      */
     fun demoteRemind(c: Context, event: Event) {
         if (!hasPermission(c)) return
-        val body = TimeFmt.summary(event.startAt, event.hasTime, event.location)
+        val body = TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location)
         val n = NotificationCompat.Builder(c, CH_REMIND)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(event.title)
@@ -303,7 +303,7 @@ object Notifications {
             style.vibrateOnly -> CH_REMIND_VIBRATE
             else -> CH_REMIND
         }
-        val body = TimeFmt.summary(event.startAt, event.hasTime, event.location)
+        val body = TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location)
 
         val n = NotificationCompat.Builder(c, channel)
             .setSmallIcon(R.drawable.ic_notify)
@@ -344,7 +344,7 @@ object Notifications {
      */
     fun postCaptured(c: Context, event: Event) {
         if (!hasPermission(c)) return
-        val body = TimeFmt.summary(event.startAt, event.hasTime, event.location)
+        val body = TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location)
         val n = NotificationCompat.Builder(c, CH_CAPTURE)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("已记录：${event.title}")
@@ -374,13 +374,13 @@ object Notifications {
     fun postPending(c: Context, event: Event) {
         if (!hasPermission(c)) return
         val body = buildString {
-            append(TimeFmt.summary(event.startAt, event.hasTime, event.location))
+            append(TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location))
             event.pendingReason?.let { append("\n").append(it) }
         }
         val n = NotificationCompat.Builder(c, CH_INFO)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("需要确认：${event.title}")
-            .setContentText(TimeFmt.summary(event.startAt, event.hasTime, event.location))
+            .setContentText(TimeFmt.rangeSummary(event.startAt, event.endAt, event.hasTime, event.location))
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(false)

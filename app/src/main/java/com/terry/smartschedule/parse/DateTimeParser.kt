@@ -162,7 +162,7 @@ object DateTimeParser {
         """^(?:\d{1,2}\s*[:：]\s*\d{2}""" +
             """|\d{1,2}\s*[点时](?:半|\d{1,2}\s*分?)?""" +
             """|[一二两三四五六七八九十]{1,3}\s*[点时](?:半|[一二三四五六七八九十]{1,3}\s*分?)?""" +
-            """|[\d一二两三四五六七八九十]{1,3}\s*[-~到至]\s*[\d一二两三四五六七八九十]{1,3}\s*[点时]?""" +
+            """|[\d一二两三四五六七八九十]{1,3}\s*[-–—－~～〜到至]\s*[\d一二两三四五六七八九十]{1,3}\s*[点时]?""" +
             """)[\s,，]*"""
     )
     private val RE_LEAD_PREP = Regex("""^(?:在|到|于|从)\s*""")
@@ -185,11 +185,27 @@ object DateTimeParser {
     private val RE_AFTER_TAIL = Regex("""^\s*(?:之前|以前|前)""")
     /** 时间区间的后半段："9:00-11:00" 的 "-11:00"、"三点到五点" 的 "到五点" */
     private val RE_TIME_RANGE = Regex(
-        """^\s*(?:到|至|-|–|~|～)\s*""" +
+        """^\s*(?:到|至|[-–—－~～〜])\s*""" +
             """(?:(?<p>凌晨|清晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|夜晚)\s*)?""" +
             """(?<h>\d{1,2}|[一二两三四五六七八九十]{1,3})\s*""" +
             """(?::\s*(?<mi1>\d{2})|[点时]\s*(?:(?<half>半)|(?<mi2>\d{1,2})\s*分?)?)"""
     )
+    /**
+     * 「九点结束」「十一点散会」里的结束钟点。
+     *
+     * 通知里常见「六点开始，九点结束」「六点开会，到九点结束」，结束时间
+     * 不一定紧跟在开始时间后面，所以单独找。末尾必须有结束标记，避免把
+     * 后文里另一个无关的钟点当成结束时间。
+     */
+    private val RE_END_CLOCK = Regex(
+        """(?:到|至)?\s*""" +
+            """(?<p>凌晨|清晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|夜晚)?\s*""" +
+            """(?<h>\d{1,2}|[一二两三四五六七八九十]{1,3})\s*""" +
+            """(?::\s*(?<mi1>\d{2})|[点时]\s*(?:(?<half>半)|(?<mi2>\d{1,2})\s*分?)?)\s*""" +
+            """(?:结束|散会|止)"""
+    )
+    /** 开始时间后面的连接词："开始，" / "起，" / "，" */
+    private val RE_START_GAP = Regex("""^\s*(?:开始|起)?\s*[，,、;；]?\s*""")
     /** 取消类通知：命中这些就直接不建日程 */
     private val CANCEL_WORDS = listOf(
         "取消", "作废", "停办", "不开了", "不举行", "不再举行",
@@ -380,6 +396,7 @@ object DateTimeParser {
         var endHour: Int? = null
         var endMinute = 0
         var timeSpan: Pair<Int, Int>? = null
+        var endSpan: Pair<Int, Int>? = null
 
         RE_ABS_TIME.find(text)?.let { m ->
             val h = m.groupInt("h")
@@ -471,6 +488,7 @@ object DateTimeParser {
         // 时间区间："9:00-11:00" / "三点到五点" 的后半段既要从标题里挖掉，
         // 也要记住结束时间。冲突检测现在看整段，不再只看开始时间。
         timeSpan?.let { sp ->
+            var gotRange = false
             if (sp.second < text.length) {
                 val tail = RE_TIME_RANGE.find(text.substring(sp.second))
                 if (tail != null && tail.range.first == 0) {
@@ -479,7 +497,25 @@ object DateTimeParser {
                         parseRangeEnd(tail, hour!!)?.let { (h, mi) ->
                             endHour = h
                             endMinute = mi
+                            gotRange = true
                         }
+                    }
+                }
+            }
+            // 「六点开始，九点结束」「六点开会，到九点结束」：结束时间不一定紧跟开始时间。
+            // 只在后面 40 字内找，避免把落款/备注里的另一个钟点当结束。
+            if (!gotRange && hour != null && sp.second < text.length) {
+                val rest = text.substring(sp.second)
+                val end = RE_END_CLOCK.find(rest)
+                if (end != null && end.range.first <= 40) {
+                    parseRangeEnd(end, hour!!)?.let { (h, mi) ->
+                        endHour = h
+                        endMinute = mi
+                        // "开始，" 这类连接词一起从标题里挖掉；"开会，九点结束" 只挖结束段
+                        val gap = RE_START_GAP.find(rest)
+                        val keepGap = gap != null && gap.range.first == 0 && gap.value.isNotBlank()
+                        val from = if (keepGap) 0 else end.range.first
+                        endSpan = (sp.second + from) to (sp.second + end.range.last + 1)
                     }
                 }
             }
@@ -538,7 +574,7 @@ object DateTimeParser {
         // 地点是句子的一部分，挖掉会把话挖断 —— 真机上撞到的：
         // "您的快递已到菜鸟驿站，请于10月25日前取件" → 标题变成
         // "您的快递已 ，请前取件"（"到菜鸟驿站"被当地点抽走，句子散了）。
-        val title = buildTitle(text, listOfNotNull(dateSpan, timeSpan, periodSpan), raw)
+        val title = buildTitle(text, listOfNotNull(dateSpan, timeSpan, endSpan, periodSpan), raw)
 
         // ---------- 置信度 ----------
         var confidence = when (dateSource) {

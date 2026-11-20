@@ -29,6 +29,31 @@ object TimeFmt {
     fun timeLabel(ms: Long, hasTime: Boolean): String =
         if (hasTime) time(ms) else "全天"
 
+    /**
+     * 时间列下面的小字：`至21:00` / `至次日01:00`。
+     * 原文没写结束时间返回 null —— 不要用"开始+1小时"去猜。
+     */
+    fun endLabel(startAt: Long, endAt: Long, hasTime: Boolean): String? {
+        if (!hasTime || endAt <= startAt) return null
+        return if (toDate(endAt) != toDate(startAt)) {
+            "至次日${time(endAt)}"
+        } else {
+            "至${time(endAt)}"
+        }
+    }
+
+    /** 紧凑区间：18:00-21:00 / 23:00-次日01:00；没有结束时间只显示开始 */
+    fun clockRange(startAt: Long, endAt: Long, hasTime: Boolean): String {
+        if (!hasTime) return "全天"
+        if (endAt <= startAt) return time(startAt)
+        val end = if (toDate(endAt) != toDate(startAt)) {
+            "次日${time(endAt)}"
+        } else {
+            time(endAt)
+        }
+        return "${time(startAt)}-$end"
+    }
+
     /** 只取日期，如 10月24日 周六 */
     fun dateLabel(date: LocalDate): String {
         val week = "一二三四五六日"[date.dayOfWeek.value - 1]

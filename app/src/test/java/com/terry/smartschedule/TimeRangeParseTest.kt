@@ -86,6 +86,32 @@ class TimeRangeParseTest {
     }
 
     @Test
+    fun `开始结束句式也能带出结束时间`() {
+        val a = parse("明天下午六点开始，九点结束")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 18, 0), ldt(a.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(a.endAt))
+
+        // 中间隔着事件名，结束时间仍要认出来
+        val b = parse("明天下午六点开会，九点结束")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 18, 0), ldt(b.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(b.endAt))
+
+        val c = parse("明天上午九点开始，十一点结束")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 9, 0), ldt(c.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 11, 0), ldt(c.endAt))
+    }
+
+    @Test
+    fun `破折号和全角连接号也能识别`() {
+        val a = parse("明天下午六点—九点开会")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(a.endAt))
+        val b = parse("明天下午6点－9点开会")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(b.endAt))
+        val c = parse("明天下午6点〜9点开会")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(c.endAt))
+    }
+
+    @Test
     fun `纯时间描述不会被当成改期通知`() {
         // 抓取链路会先问「是不是改期/取消」；这里如果误判成 Move，
         // 日程会被改到别的条目上，而不是新建

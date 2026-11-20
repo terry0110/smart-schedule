@@ -439,7 +439,14 @@ class MainActivity : AppCompatActivity() {
 
         // 日期依据始终显示：让用户知道这个日期是原文写的，还是我推出来的
         val basis = r.dateHint.ifBlank { null }
-        val hintHead = basis ?: "识别完成"
+        // 原文写了结束时间就把区间一并摆出来，不然面板上只看得到开始时间，
+        // 用户没法确认「六点到九点」到底有没有被识别
+        val range = if (r.hasTime && r.endAt > r.startAt) {
+            TimeFmt.clockRange(r.startAt, r.endAt, true)
+        } else {
+            null
+        }
+        val hintHead = listOfNotNull(basis ?: "识别完成", range).joinToString(" · ")
 
         // 有警告就把每一处都摊开说，这是"日期不对要提示"的落点
         if (r.warnings.isEmpty()) {

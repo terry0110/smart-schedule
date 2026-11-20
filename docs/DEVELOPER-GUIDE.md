@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.55（versionCode 55）** · 包名 `com.terry.smartschedule` · 349 个单测 · DB v10
+> 当前版本：**v1.56（versionCode 56）** · 包名 `com.terry.smartschedule` · 351 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（349 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（351 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 55        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.55"
+versionCode = 56        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.56"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -191,7 +191,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── EventDeduper.kt         154 行    已存重复日程的分组（并查集；清理重复按钮用，EventDeduperTest 守着）
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
-│   ├── DateTimeParser.kt       992 行    ★ 中文日程文本解析器，纯 Kotlin，全套正则
+│   ├── DateTimeParser.kt      1109 行    ★ 中文日程文本解析器，纯 Kotlin，全套正则
 │   ├── SegmentParser.kt        101 行    多段文本里挑一条能用的解析结果
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
@@ -228,10 +228,10 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── SettingsActivity.kt     599 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
-│   ├── EventAdapter.kt         241 行    列表 RecyclerView 适配器（含检索高亮）
+│   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
 │   └── SearchHighlight.kt       67 行    命中标蓝加粗 + 原文命中片段
 └── util/
-    ├── TimeFmt.kt               60 行    时间格式化（"明天 15:00"）
+    ├── TimeFmt.kt               100 行    时间格式化（"明天 15:00"、区间、结束时间小字）
     ├── SecretStore.kt           87 行    Android Keystore AES 加解密（存 API Key）
     ├── ScreenGuard.kt           50 行    后台禁止截屏
     └── Insets.kt                84 行    状态栏 / 导航栏内边距
@@ -565,6 +565,15 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 整体兜底用**所有非空段**拼接（v1.55）：微信里「明天」「开会」各发一条时，
 单段都不到 4 字，以前连拼的机会都没有；逐段解析仍然只跑 ≥4 字的段。
 
+**结束时间的三种写法（v1.56）**：
+1. 紧跟式：`六点到九点`、`6点-9点`、`6点—9点` / `6点－9点`（破折号、全角连接号都认）；
+2. 开始/结束式：`六点开始，九点结束`、`六点开会，九点结束` —— 在开始时间后 40 字内
+   找带「结束 / 散会 / 止」的钟点，连接词一起从标题里挖掉；
+3. 明确结束钟点：`9:00-11:00`、`下午3点至5点`。
+
+列表时间列下方用 `TimeFmt.endLabel()` 显示「至21:00」（跨天「至次日01:00」），
+通知回执/提醒用 `rangeSummary`，避免"存了结束时间但界面上看不见"。
+
 ### 5.6 三档落地（`persist`）
 
 1. `CapturePolicy.rejectReason()` 非空 → 不建（目前只有一条：`TIME_ONLY`，
@@ -882,7 +891,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**349 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 30 个文件、约 3500 行、**351 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -909,7 +918,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断、重复命中时补结束时间（两边都有则不猜） |
 | `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段与结束时间/跳过已改期条目 |
 | `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
-| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期）；纯时间描述不会被误判成改期 |
+| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、开始/结束句式、破折号/全角连接号、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期）；纯时间描述不会被误判成改期 |
 
 ### 10.2 写新测试的规矩
 
@@ -930,7 +939,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.55-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.56-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1089,7 +1098,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 349 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 351 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1123,4 +1132,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 349 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 351 条测试和保护机制一条条拆掉。
