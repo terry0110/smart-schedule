@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.58（versionCode 58）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
+> 当前版本：**v1.59（versionCode 59）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 58        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.58"
+versionCode = 59        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.59"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -225,7 +225,7 @@ app/src/main/java/com/terry/smartschedule/
 ├── ui/
 │   ├── MainActivity.kt        1287 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
-│   ├── SettingsActivity.kt     656 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
+│   ├── SettingsActivity.kt     649 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
 │   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
@@ -854,7 +854,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 为什么"跟随设置"做成勾选框而不是第五个按钮：五个按钮挤一行会把文字截断。
 
-### 8.4 设置页（`SettingsActivity`，656 行）
+### 8.4 设置页（`SettingsActivity`，649 行）
 
 分区顺序：通知使用权 → 自动记录 → 系统日历同步 → 默认通知方式 → 提醒提前量 →
 保活 → 诊断 → 危险操作（清空数据）。
@@ -945,7 +945,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.58-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.59-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

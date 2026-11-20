@@ -46,19 +46,14 @@
     <string name="settings_section_capture">自动识别</string>
     <string name="settings_capture_switch">监听微信/QQ 通知并自动建日程</string>
     <string name="settings_keepalive_switch">后台常驻，避免被杀</string>
-    <string name="settings_keepalive_desc">会显示一条常驻通知。不开的话，系统清理后台后就收不到通知了。</string>
     <string name="settings_pending_switch">没把握的结果进「待确认」</string>
     <string name="settings_pending_desc">关掉后，识别把握不足的通知会被直接丢弃。</string>
     <string name="settings_open_listener">打开系统「通知使用权」设置</string>
     <string name="settings_grant_listener">去授予通知使用权</string>
     <string name="settings_battery">允许后台常驻（电池优化白名单）</string>
     <string name="settings_autostart">去设置自启动</string>
-    <string name="settings_scope">只分析微信、QQ、TIM 的通知，其他应用一律不看</string>
-    <string name="settings_scope_desc">这是有意的收窄：新闻、电商、游戏、运营商短信里日期和数字太密集，误报基本都从那儿来。代价是短信、邮件里的日程也抓不到了 —— 这类可以手动粘贴识别。</string>
     <string name="settings_verbose">诊断模式（记录每一条通知）</string>
-    <string name="settings_verbose_desc">打开后，连被判为不相关而跳过的通知也会记一条，用来判断服务到底有没有收到东西。仍不记录通知正文。</string>
     <string name="settings_scan_now">立即检测当前通知栏</string>
-    <string name="settings_scan_desc">把通知栏里已有的微信/QQ 通知过一遍，不用干等新通知。</string>
     <string name="settings_capture_log">查看最近的通知处理记录</string>
 
     <string name="settings_section_calendar">系统日历同步</string>
@@ -106,11 +101,9 @@
 
     <string name="settings_section_privacy">隐私与数据</string>
     <string name="settings_log_raw">抓取日志里保存通知原文</string>
-    <string name="settings_log_raw_desc">默认关闭。关闭时日志只记「哪个应用、什么结果、为什么」，不记通知内容。</string>
     <string name="settings_save_note">日程里保存解析原文</string>
     <string name="settings_save_note_desc">默认开启。关闭后，新识别/抓取的日程不再保存原文；已有日程里的原文不受影响。</string>
     <string name="settings_no_network">本应用不申请网络权限，所有解析都在手机上完成。</string>
-    <string name="settings_privacy_note">日程、抓取日志、设置全部只存在本机，不参与系统云备份，也不会上传到任何服务器——本应用连网络权限都没有。唯一会写出去的，是你自己打开的「系统日历同步」，且只写进本机日历，不进任何账号。</string>
     <string name="settings_wipe">删除所有本地数据</string>
 
     <!-- 归档日志 -->
