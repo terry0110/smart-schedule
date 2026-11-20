@@ -44,7 +44,7 @@
 
     <!-- 设置页 -->
     <string name="settings_section_capture">自动识别</string>
-    <string name="settings_capture_switch">监听微信/QQ 通知并自动建日程</string>
+    <string name="settings_capture_switch">读取微信/QQ 通知并自动建日程</string>
     <string name="settings_keepalive_switch">后台常驻，避免被杀</string>
     <string name="settings_pending_switch">没把握的结果进「待确认」</string>
     <string name="settings_pending_desc">关掉后，识别把握不足的通知会被直接丢弃。</string>

@@ -170,7 +170,7 @@ class SettingsActivity : AppCompatActivity() {
 
         b.btnListener.setOnClickListener {
             when (ServiceHealth.status(this)) {
-                ListenerStatus.OFF -> toast("先打开上面的「监听通知并自动建日程」")
+                ListenerStatus.OFF -> toast("先打开上面的「读取通知并自动建日程」")
                 ListenerStatus.NO_PERMISSION -> openListenerSettings()
                 ListenerStatus.RUNNING -> toast("通知监听正常，不用处理")
                 ListenerStatus.CONNECTING -> startReconnect()
@@ -345,7 +345,7 @@ class SettingsActivity : AppCompatActivity() {
                 ListenerStatus.OFF -> "通知监听：已关闭（上面的总开关没开）"
                 ListenerStatus.NO_PERMISSION -> "通知使用权：未授予"
                 ListenerStatus.RUNNING -> "通知使用权：已授予，服务正在运行"
-                ListenerStatus.CONNECTING -> "通知监听：正在连接…"
+                ListenerStatus.CONNECTING -> "通知读取：正在连接…"
             }
         )
         sb.append("\n电池优化白名单：").append(if (batteryOk) "已加入" else "未加入，后台容易被冻结")

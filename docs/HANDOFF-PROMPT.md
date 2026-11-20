@@ -50,7 +50,7 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 
 ## 当前状态（2026-11-20）
 
-- **v1.62** / versionCode 62 / DB v10 / 354 条单测 / lint 0 error
+- **v2.0** / versionCode 63 / DB v10 / 354 条单测 / lint 0 error
 - 已有功能：通知抓取建日程、手动粘贴识别、四档提醒方式、分类、检索、
   系统日历同步、改期 / 取消 / 换地点 / 「时间有变」识别、改期没认准时的人工确认、
   应用内改期待办、前台即时刷新、换地点后已弹提醒原地更新、自动改期撤旧提醒、
@@ -84,7 +84,7 @@ adb shell am start -n com.tencent.mm/com.terry.notifysim.PostActivity \
 
 跑完 `adb uninstall com.tencent.mm`，否则装不了真微信。
 
-**前置**：设置里「监听微信/QQ 通知」的总开关要打开，否则一条都不会处理。
+**前置**：设置里「读取微信/QQ 通知」的总开关要打开，否则一条都不会处理。
 
 看处理结果别只看界面，直接查库最准：
 

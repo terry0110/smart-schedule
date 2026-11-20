@@ -328,11 +328,11 @@ class MainActivity : AppCompatActivity() {
         val cb = ServiceHealth.lastCallbackAt
         b.tvSubtitle.text = when (ServiceHealth.status(this)) {
             ListenerStatus.OFF -> getString(R.string.header_subtitle)
-            ListenerStatus.NO_PERMISSION -> "通知监听未授权 · 点右上角去开启"
-            ListenerStatus.CONNECTING -> "通知监听已开启 · 正在等待系统连接…"
+            ListenerStatus.NO_PERMISSION -> "通知读取未授权 · 点右上角去开启"
+            ListenerStatus.CONNECTING -> "通知读取中 · 正在等待系统连接…"
             ListenerStatus.RUNNING ->
-                if (cb == 0L) "监听中 · 本次运行还没收到过通知"
-                else "监听中 · 最近收到通知${ago(cb)}"
+                if (cb == 0L) "读取中 · 本次运行还没收到过通知"
+                else "读取中 · 最近收到通知${ago(cb)}"
         }
         // 顺手刷一下通知栏那条常驻提示，保证它和这里说的是同一件事
         KeepAliveService.refresh(this)
