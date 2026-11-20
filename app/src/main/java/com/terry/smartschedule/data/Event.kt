@@ -59,7 +59,14 @@ data class Event(
      * 和 done 的区别：done 是"这件事做完了"，归档是"把它从眼前收起来"。
      * 老数据里勾过"已结束"的，升级时统一搬成归档。
      */
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    /**
+     * 结束时间；0 表示原文没写结束时间。
+     *
+     * 冲突检测看的是"整段时间"，所以带区间的通知（"下午3点-5点"）要把它存下来。
+     * 0 不是"全天"——全天看 [hasTime]，这里只是"时长未知"，检测时按默认时长兜底。
+     */
+    val endAt: Long = 0L
 ) {
     companion object {
         const val SRC_MANUAL = "manual"

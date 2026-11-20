@@ -47,12 +47,104 @@
                     android:src="@drawable/ic_back" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
                     android:text="@string/archive_title"
                     android:textColor="@color/text_primary"
                     android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnDeleteAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:background="@drawable/bg_select_bar_btn"
+                    android:gravity="center"
+                    android:minWidth="64dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="@string/action_delete_all"
+                    android:textColor="@color/warn"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnSelect"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_select_bar_btn"
+                    android:gravity="center"
+                    android:minWidth="56dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="@string/action_multi_select"
+                    android:textColor="@color/brand_dark"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- 多选操作条：和标题行同时显示，进多选后上方两个按钮隐藏 -->
+            <LinearLayout
+                android:id="@+id/selectBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="12dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/btnSelectClose"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_glass_circle"
+                    android:contentDescription="@string/select_close"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_back" />
+
+                <TextView
+                    android:id="@+id/tvSelectCount"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/select_none"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnSelectAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:background="@drawable/bg_select_bar_btn"
+                    android:gravity="center"
+                    android:minWidth="64dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="@string/select_all"
+                    android:textColor="@color/brand_dark"
+                    android:textSize="13.5sp" />
+
+                <TextView
+                    android:id="@+id/btnSelectDelete"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_select_bar_btn"
+                    android:gravity="center"
+                    android:minWidth="64dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="@string/select_bar_delete"
+                    android:textColor="@color/warn"
+                    android:textSize="13.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>

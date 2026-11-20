@@ -901,11 +901,14 @@ class MainActivity : AppCompatActivity() {
         val timeChanged = EventEdit.shouldResetDone(
             old.startAt, old.hasTime, startAt, hasTime
         )
+        // 时长跟着开始时间走：原来有结束时间就保持同样的时长，否则按默认时长
+        val duration = (old.endAt - old.startAt).takeIf { it > 0 } ?: 0L
 
         val updated = old.copy(
             title = title,
             startAt = startAt,
             hasTime = hasTime,
+            endAt = if (hasTime && duration > 0) startAt + duration else 0L,
             location = location,
             // 编辑即确认：用户已经亲手核对过了，不该再挂着"待确认"
             pending = false,

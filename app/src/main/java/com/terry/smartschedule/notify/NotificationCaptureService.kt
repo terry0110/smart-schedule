@@ -571,7 +571,9 @@ class NotificationCaptureService : NotificationListenerService() {
             // 只取前 40 字是因为分类看的是"这件事是什么"，长通告后半段多是流程说明
             category = CategoryRules.classify(
                 "${r.title} ${r.location.orEmpty()} ${text.take(40)}"
-            ).key
+            ).key,
+            // 原文写了"3点-5点"就存结束时间；冲突检测按整段比
+            endAt = r.endAt
         )
 
         // 同一条通知的另一版：截断版 → 完整版、多了「现时间有变」前缀…
@@ -593,6 +595,12 @@ class NotificationCaptureService : NotificationListenerService() {
                 hasTime = event.hasTime,
                 location = event.location ?: mergeTarget.location,
                 note = event.note ?: mergeTarget.note,
+                // 新版本给了区间就用新的；没给就沿用旧时长（前提是结束点还在新开始之后）
+                endAt = when {
+                    event.endAt > event.startAt -> event.endAt
+                    mergeTarget.endAt > event.startAt -> mergeTarget.endAt
+                    else -> 0L
+                },
                 // 两版只要有一版够有把握，就不用再挂着"待确认" ——
                 // 之前多半是因为缺时间才待确认，完整版到了就该转正
                 pending = mergeTarget.pending && unsure,

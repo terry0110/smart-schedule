@@ -13,10 +13,20 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="15dp"
+        android:paddingStart="2dp"
         android:paddingTop="14dp"
         android:paddingEnd="8dp"
         android:paddingBottom="14dp">
+
+        <!-- 多选模式才显示；点它切换本行选中 -->
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cbSelect"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/row_select"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="58dp"

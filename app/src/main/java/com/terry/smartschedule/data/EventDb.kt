@@ -35,7 +35,8 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
                 cal_event_id INTEGER NOT NULL DEFAULT 0,
                 revoked INTEGER NOT NULL DEFAULT 0,
                 revoke_reason TEXT,
-                archived INTEGER NOT NULL DEFAULT 0
+                archived INTEGER NOT NULL DEFAULT 0,
+                end_at INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -107,6 +108,10 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
             db.execSQL("UPDATE $TABLE SET archived = 1 WHERE done = 1")
         }
+        // v9 -> v10：结束时间。老数据保持 0（时长未知），冲突检测按默认时长兜底。
+        if (oldVersion < 10) {
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN end_at INTEGER NOT NULL DEFAULT 0")
+        }
     }
 
     /** 给老数据补分类。用的是纯规则分类器（[CategoryRules]），不需要网络 */
@@ -158,7 +163,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
 
     companion object {
         const val DB_NAME = "schedule.db"
-        const val DB_VERSION = 9
+        const val DB_VERSION = 10
         const val TABLE = "events"
         const val C_TABLE = "capture_log"
         const val S_TABLE = "msg_seen"
@@ -206,6 +211,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
         const val C_REVOKED = "revoked"
         const val C_REVOKE_REASON = "revoke_reason"
         const val C_ARCHIVED = "archived"
+        const val C_END = "end_at"
     }
 }
 
@@ -228,4 +234,5 @@ fun Event.toValues(): ContentValues = ContentValues().apply {
     put(EventDb.C_REVOKED, if (revoked) 1 else 0)
     put(EventDb.C_REVOKE_REASON, revokeReason)
     put(EventDb.C_ARCHIVED, if (archived) 1 else 0)
+    put(EventDb.C_END, endAt)
 }

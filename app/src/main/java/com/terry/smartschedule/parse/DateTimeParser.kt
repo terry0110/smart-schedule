@@ -67,7 +67,12 @@ object DateTimeParser {
          * 需要用户核对的问题，例如"原文日期和星期对不上"。
          * 非空就表示：不许静默入库，必须摆到用户面前让他确认。
          */
-        val warnings: List<String> = emptyList()
+        val warnings: List<String> = emptyList(),
+        /**
+         * 结束时间；0 表示原文没写结束时间。
+         * 冲突检测遇到 0 会按默认时长算，别把它当成"全天"。
+         */
+        val endAt: Long = 0L
     ) {
         val start: LocalDateTime
             get() = LocalDateTime.ofInstant(
@@ -180,7 +185,10 @@ object DateTimeParser {
     private val RE_AFTER_TAIL = Regex("""^\s*(?:之前|以前|前)""")
     /** 时间区间的后半段："9:00-11:00" 的 "-11:00"、"三点到五点" 的 "到五点" */
     private val RE_TIME_RANGE = Regex(
-        """^\s*(?:到|至|-|–|~|～)\s*(?:\d{1,2}\s*[:：]\s*\d{2}|\d{1,2}\s*[点时](?:半|\d{1,2}\s*分?)?|[一二两三四五六七八九十]{1,3}\s*[点时](?:半)?)"""
+        """^\s*(?:到|至|-|–|~|～)\s*""" +
+            """(?:(?<p>凌晨|清晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|夜晚)\s*)?""" +
+            """(?<h>\d{1,2}|[一二两三四五六七八九十]{1,3})\s*""" +
+            """(?::\s*(?<mi1>\d{2})|[点时]\s*(?:(?<half>半)|(?<mi2>\d{1,2})\s*分?)?)"""
     )
     /** 取消类通知：命中这些就直接不建日程 */
     private val CANCEL_WORDS = listOf(
@@ -369,6 +377,8 @@ object DateTimeParser {
         // ---------- 时间 ----------
         var hour: Int? = null
         var minute = 0
+        var endHour: Int? = null
+        var endMinute = 0
         var timeSpan: Pair<Int, Int>? = null
 
         RE_ABS_TIME.find(text)?.let { m ->
@@ -458,13 +468,19 @@ object DateTimeParser {
         }
         if (hour == 24) hour = 0
 
-        // 时间区间：把 "9:00-11:00" / "三点到五点" 的后半段并进 span。
-        // 不并的话，标题里会剩一个"到五点值班"。
+        // 时间区间："9:00-11:00" / "三点到五点" 的后半段既要从标题里挖掉，
+        // 也要记住结束时间。冲突检测现在看整段，不再只看开始时间。
         timeSpan?.let { sp ->
             if (sp.second < text.length) {
                 val tail = RE_TIME_RANGE.find(text.substring(sp.second))
                 if (tail != null && tail.range.first == 0) {
                     timeSpan = sp.first to (sp.second + tail.range.last + 1)
+                    if (hour != null) {
+                        parseRangeEnd(tail, hour!!)?.let { (h, mi) ->
+                            endHour = h
+                            endMinute = mi
+                        }
+                    }
                 }
             }
         }
@@ -542,16 +558,73 @@ object DateTimeParser {
         val hh = hour ?: 9
         val mm = if (hour == null) 0 else minute
         val start = LocalDateTime.of(date, LocalTime.of(hh, mm))
+        val startAt = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // endHour 可能 >=24（跨天），转成"日期 + 天数 + 小时"
+        val endAt = endHour?.let { total ->
+            val days = total / 24
+            val h = total % 24
+            LocalDateTime.of(date, LocalTime.of(h, endMinute))
+                .plusDays(days.toLong())
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                .takeIf { it > startAt } ?: 0L
+        } ?: 0L
         return Result(
             title = title,
-            startAt = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            startAt = startAt,
             hasTime = hasTime,
             location = loc,
             confidence = confidence,
             dateSource = dateSource,
             dateHint = dateHint,
-            warnings = warnings
+            warnings = warnings,
+            endAt = endAt
         )
+    }
+
+    /**
+     * 解析时间区间的结束钟点。
+     *
+     * @return 总小时数（可能 >=24 表示跨天）+ 分钟；解析不出来返回 null
+     */
+    private fun parseRangeEnd(m: MatchResult, startHour: Int): Pair<Int, Int>? {
+        val hRaw = m.groups["h"]?.value ?: return null
+        val h0 = hRaw.toIntOrNull() ?: cnToInt(hRaw)
+        val mi = when {
+            m.groups["half"]?.value != null -> 30
+            m.groups["mi1"]?.value != null -> m.groups["mi1"]!!.value.toInt()
+            m.groups["mi2"]?.value != null -> {
+                val s = m.groups["mi2"]!!.value
+                s.toIntOrNull() ?: cnToInt(s)
+            }
+            else -> 0
+        }
+        if (h0 !in 0..24 || mi !in 0..59) return null
+
+        val p = m.groups["p"]?.value
+        var h = when {
+            p == null -> h0
+            p == "凌晨" || p == "清晨" -> if (h0 == 12) 0 else h0
+            p == "早上" || p == "早晨" || p == "上午" -> h0
+            p == "中午" -> if (h0 in 1..3) h0 + 12 else h0
+            else -> if (h0 < 12) h0 + 12 else h0
+        }
+        if (p == null) {
+            // 没写上下午：按开始时间继承。
+            // 下午3点-5点 → 15:00-17:00；晚上8点-10点 → 20:00-22:00；
+            // 23:00-01:00 → 次日 01:00（不能先 +12 再跨天，否则会变成次日 13:00）
+            if (startHour >= 12 && h < 12) {
+                val pm = h + 12
+                if (pm > startHour) h = pm
+            } else if (startHour < 12 && h <= startHour && h + 12 > startHour) {
+                // 上午11点到1点 → 13:00，而不是次日凌晨
+                h += 12
+            }
+            if (h <= startHour) h += 24
+        } else if (h <= startHour) {
+            // 明确写了时段，但仍可能跨天（23:00-凌晨1点）
+            h += 24
+        }
+        return h to mi
     }
 
     /**

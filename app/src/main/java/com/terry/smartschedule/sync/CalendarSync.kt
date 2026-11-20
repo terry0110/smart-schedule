@@ -195,8 +195,9 @@ object CalendarSync {
         if (event.hasTime) {
             cv.put(CalendarContract.Events.ALL_DAY, 0)
             cv.put(CalendarContract.Events.DTSTART, event.startAt)
-            // 系统日历的最小单位是区间，没有"某一刻"；给一小时，够看清、也不会占满整个下午
-            cv.put(CalendarContract.Events.DTEND, event.startAt + 60 * 60_000L)
+            // 原文写了结束时间就按原文；没写才给一小时，别把"3点-5点"压成一小时
+            val end = if (event.endAt > event.startAt) event.endAt else event.startAt + 60 * 60_000L
+            cv.put(CalendarContract.Events.DTEND, end)
         } else {
             cv.put(CalendarContract.Events.ALL_DAY, 1)
             // 全天事件必须是 UTC 零点，否则东八区会整体往前错一天（见类注释第 2 条）

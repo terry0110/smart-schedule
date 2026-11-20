@@ -57,4 +57,19 @@ object TimeFmt {
         if (!location.isNullOrBlank()) sb.append(" · ").append(location)
         return sb.toString()
     }
+
+    /** 带结束时间的一句话描述；结束时间未知时退回 [summary] */
+    fun rangeSummary(startAt: Long, endAt: Long, hasTime: Boolean, location: String?): String {
+        if (!hasTime) return summary(startAt, false, location)
+        if (endAt <= startAt) return summary(startAt, true, location)
+        val sb = StringBuilder()
+        sb.append(dayHeader(toDate(startAt))).append(' ').append(time(startAt))
+        if (toDate(endAt) != toDate(startAt)) {
+            sb.append("-次日").append(time(endAt))
+        } else {
+            sb.append('-').append(time(endAt))
+        }
+        if (!location.isNullOrBlank()) sb.append(" · ").append(location)
+        return sb.toString()
+    }
 }

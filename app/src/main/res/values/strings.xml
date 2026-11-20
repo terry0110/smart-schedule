@@ -116,6 +116,11 @@
     <string name="archive_empty">还没有归档的日程</string>
     <string name="action_restore">恢复</string>
     <string name="settings_dedupe">清理重复日程</string>
+    <!-- 归档页的多选/批量删除 -->
+    <string name="action_multi_select">多选</string>
+    <string name="action_delete_all">删除全部</string>
+    <string name="delete_all_title">删除全部 %1$d 条归档日程？</string>
+    <string name="delete_all_message">删除后无法恢复，系统日历里的对应条目也会一起删。</string>
     <!-- 列表行内的两个复选框：读屏要的是"这一行的动作"，不是全局按钮名 -->
     <string name="row_select">选择此日程</string>
     <string name="row_archive">归档此日程</string>

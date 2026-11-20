@@ -20,8 +20,8 @@ import java.time.temporal.ChronoUnit
  */
 object EventConflict {
 
-    /** 和 [EventMerge] 用同一个容差：不同来源推出来的时间常差几分钟 */
-    const val SAME_TIME_MS = 5 * 60_000L
+    /** 默认时长：原文没写结束时间时，按 1 小时估。冲突检测不能用"开始时间点"比 */
+    const val DEFAULT_DURATION_MS = 60 * 60_000L
 
     /** 只和前后 3 天内的日程比"名称/地点重合"，避免把远处的系列日程翻出来 */
     const val LOOKAROUND_DAYS = 3L
@@ -32,7 +32,7 @@ object EventConflict {
     /** 字符集合包含度门槛。0.8 能放过"部门周会/部门会议"，抓住"贺老师…盖章"的截断版 */
     const val MIN_TITLE_COVER = 0.8
 
-    enum class Kind { SAME_TIME, SIMILAR }
+    enum class Kind { OVERLAP, SIMILAR }
 
     data class Hit(val kind: Kind, val event: Event)
 
@@ -44,20 +44,20 @@ object EventConflict {
         val pool = existing.filter {
             it.id > 0 && it.id != incoming.id &&
                 !it.archived && !it.done && !it.revoked &&
-                // 已经过去的日程不参与：新通知几乎都指向未来，拿旧日程来比只会制造噪音
-                it.startAt >= now
+                // 已经结束的日程不参与；正在进行的还要算 —— 15:00-17:00 的会
+                // 在 16:00 依然是冲突对象
+                intervalEnd(it) > now
         }
         if (pool.isEmpty()) return null
 
-        // 1) 同一时间优先。标题不同也算硬冲突 —— 那个时段已经有一件事了
+        // 1) 时间重叠优先。标题不同也算硬冲突 —— 那个时段已经有一件事了。
+        //    不能只看开始时间：15:00-17:00 的会和 16:00 的会同样冲突。
         if (incoming.hasTime) {
+            val inEnd = intervalEnd(incoming)
             pool.asSequence()
-                .filter {
-                    it.hasTime &&
-                        kotlin.math.abs(it.startAt - incoming.startAt) <= SAME_TIME_MS
-                }
+                .filter { it.hasTime && overlaps(incoming.startAt, inEnd, it.startAt, intervalEnd(it)) }
                 .minByOrNull { kotlin.math.abs(it.startAt - incoming.startAt) }
-                ?.let { return Hit(Kind.SAME_TIME, it) }
+                ?.let { return Hit(Kind.OVERLAP, it) }
         }
 
         // 2) 名称 + 地点高度重合
@@ -76,6 +76,14 @@ object EventConflict {
 
         return best?.let { Hit(Kind.SIMILAR, it.first) }
     }
+
+    /** 结束时间；原文没写或数据非法时按默认时长兜底 */
+    fun intervalEnd(e: Event): Long =
+        if (e.endAt > e.startAt) e.endAt else e.startAt + DEFAULT_DURATION_MS
+
+    /** 半开区间重叠：首尾相接（15:00-16:00 与 16:00）不算冲突 */
+    fun overlaps(aStart: Long, aEnd: Long, bStart: Long, bEnd: Long): Boolean =
+        aStart < bEnd && bStart < aEnd
 
     /**
      * 标题重合度：
@@ -109,10 +117,12 @@ object EventConflict {
 
     /** 给用户看的待确认理由 */
     fun reason(hit: Hit): String {
-        val whenText = TimeFmt.summary(hit.event.startAt, hit.event.hasTime, hit.event.location)
+        val whenText = TimeFmt.rangeSummary(
+            hit.event.startAt, hit.event.endAt, hit.event.hasTime, hit.event.location
+        )
         return when (hit.kind) {
-            Kind.SAME_TIME ->
-                "与「${hit.event.title}」（$whenText）同一时间，请确认是不是两件事"
+            Kind.OVERLAP ->
+                "与「${hit.event.title}」（$whenText）时间重叠，请确认是不是两件事"
             Kind.SIMILAR ->
                 "与「${hit.event.title}」（$whenText）名称和地点高度重合，可能是同一条的变化，请确认"
         }

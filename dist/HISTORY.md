@@ -97,3 +97,4 @@
 | 1.44 | 44 | debug | 2026-11-19 23:10 | smart-schedule-v1.44-debug.apk | 4.9M |
 | 1.45 | 45 | debug | 2026-11-20 00:02 | smart-schedule-v1.45-debug.apk | 4.8M |
 | 1.46 | 46 | debug | 2026-11-20 08:14 | smart-schedule-v1.46-debug.apk | 4.8M |
+| 1.47 | 47 | debug | 2026-11-20 11:08 | smart-schedule-v1.47-debug.apk | 4.8M |
