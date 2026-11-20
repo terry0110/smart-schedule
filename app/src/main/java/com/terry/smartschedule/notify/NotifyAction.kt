@@ -29,6 +29,12 @@ object NotifyAction {
     const val ACTION_DATA_CHANGED = "com.terry.smartschedule.DATA_CHANGED"
 
     /**
+     * 通知监听服务的绑定状态变了（已连接 / 断开）。
+     * 设置页和主界面据此立刻刷新状态，不用等轮询窗口结束。
+     */
+    const val ACTION_LISTENER_STATE = "com.terry.smartschedule.LISTENER_STATE"
+
+    /**
      * 点了「改期需要确认」通知：把主界面叫起来，让用户选出改的是哪一条。
      *
      * 这条链路**只在信息不全时**走（缺新时间 / 候选不唯一）。

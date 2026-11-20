@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.60（versionCode 60）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
+> 当前版本：**v1.61（versionCode 61）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 60        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.60"
+versionCode = 61        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.61"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -201,7 +201,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 882 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 892 行  ★ 通知监听主链路（含监听状态广播）
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -221,11 +221,11 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── KeepAliveService.kt     131 行    前台服务保活（常驻低优先级通知）
 │   ├── PendingActionReceiver.kt 123 行  通知按钮：确认 / 删除 / 知道了 / 稍后
 │   ├── BootReceiver.kt          37 行    开机 / 应用更新后重排提醒 + 补发
-│   └── NotifyAction.kt          59 行    action / extras 常量
+│   └── NotifyAction.kt          65 行    action / extras 常量（含 LISTENER_STATE）
 ├── ui/
-│   ├── MainActivity.kt        1287 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
+│   ├── MainActivity.kt        1482 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
-│   ├── SettingsActivity.kt     656 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
+│   ├── SettingsActivity.kt     698 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
 │   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
@@ -616,6 +616,14 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 不要再加"自动反复重连"：连点会打断系统正在进行的绑定，反而更连不上。
 
+v1.61 补的两件事：
+
+- 详情页跳转的 `EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME` 必须传 `ComponentName`
+  对象，传 `flattenToString()` 字符串会被系统忽略、退回组件列表页
+- 服务在 `onListenerConnected` / `onListenerDisconnected` / `onDestroy` 广播
+  `NotifyAction.ACTION_LISTENER_STATE`；设置页和主界面收到后立刻刷新状态，
+  设置页还会停掉轮询并提示"已连接"，不必等下一次定时刷新
+
 ---
 
 ## 6. 解析层（`DateTimeParser`，1000 行，最需要小心的地方）
@@ -870,7 +878,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 为什么"跟随设置"做成勾选框而不是第五个按钮：五个按钮挤一行会把文字截断。
 
-### 8.4 设置页（`SettingsActivity`，656 行）
+### 8.4 设置页（`SettingsActivity`，698 行）
 
 分区顺序：通知使用权 → 自动记录 → 系统日历同步 → 默认通知方式 → 提醒提前量 →
 保活 → 诊断 → 危险操作（清空数据）。
@@ -961,7 +969,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.60-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.61-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

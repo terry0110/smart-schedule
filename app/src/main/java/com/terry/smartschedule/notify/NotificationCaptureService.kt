@@ -66,6 +66,7 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onDestroy() {
         if (instance === this) instance = null
         ServiceHealth.connected = false
+        broadcastListenerState()
         scope.cancel()
         super.onDestroy()
     }
@@ -73,6 +74,7 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         ServiceHealth.connected = true
+        broadcastListenerState()
         instance = this
         Prefs.init(this)
         // 通知栏那条常驻提示要跟着变，否则会出现
@@ -87,6 +89,7 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         ServiceHealth.connected = false
+        broadcastListenerState()
         KeepAliveService.refresh(this)
         // 有些 ROM 断开后不会自己重连，主动要求系统重新绑定
         runCatching {
@@ -522,6 +525,13 @@ class NotificationCaptureService : NotificationListenerService() {
     private fun broadcastChanged() {
         runCatching {
             sendBroadcast(Intent(NotifyAction.ACTION_DATA_CHANGED).setPackage(packageName))
+        }
+    }
+
+    /** 通知监听绑定状态变了：设置页/主界面立刻刷新，不用等轮询 */
+    private fun broadcastListenerState() {
+        runCatching {
+            sendBroadcast(Intent(NotifyAction.ACTION_LISTENER_STATE).setPackage(packageName))
         }
     }
 

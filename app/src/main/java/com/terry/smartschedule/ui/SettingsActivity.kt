@@ -1,8 +1,11 @@
 package com.terry.smartschedule.ui
 
 import android.app.AlarmManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +13,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.terry.smartschedule.R
@@ -282,8 +286,46 @@ class SettingsActivity : AppCompatActivity() {
         if (ServiceHealth.status(this) == ListenerStatus.CONNECTING) startWatch()
     }
 
+    /**
+     * 服务真正连上/断开时，服务会发这条广播。轮询窗口之外（比如系统 10 秒后
+     * 才绑定成功）也能立刻把界面改对，不会一直显示"正在连接"。
+     */
+    private val listenerState = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != NotifyAction.ACTION_LISTENER_STATE) return
+            val running = ServiceHealth.status(this@SettingsActivity) == ListenerStatus.RUNNING
+            if (running) {
+                val wasWaiting = reconnecting || watching
+                reconnecting = false
+                watching = false
+                ui.removeCallbacks(reconnectPoll)
+                ui.removeCallbacks(refresh)
+                updateListenerState()
+                if (wasWaiting) toast("已连接")
+            } else {
+                updateListenerState()
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ContextCompat.registerReceiver(
+            this,
+            listenerState,
+            IntentFilter(NotifyAction.ACTION_LISTENER_STATE),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+
+    override fun onStop() {
+        runCatching { unregisterReceiver(listenerState) }
+        super.onStop()
+    }
+
     override fun onDestroy() {
         ui.removeCallbacks(refresh)
+        ui.removeCallbacks(reconnectPoll)
         super.onDestroy()
     }
 
@@ -361,7 +403,7 @@ class SettingsActivity : AppCompatActivity() {
             val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
                 .putExtra(
                     Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
-                    ComponentName(this, NotificationCaptureService::class.java).flattenToString()
+                    ComponentName(this, NotificationCaptureService::class.java)
                 )
             if (runCatching { startActivity(detail) }.isSuccess) return
         }

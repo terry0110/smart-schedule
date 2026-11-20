@@ -244,17 +244,22 @@ class MainActivity : AppCompatActivity() {
     /** 通知栏里点了「确认 / 删除」之后，前台的列表要跟着变 */
     private val dataChanged = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, intent: Intent?) {
-            if (intent?.action == NotifyAction.ACTION_DATA_CHANGED) reload()
+            when (intent?.action) {
+                NotifyAction.ACTION_DATA_CHANGED -> reload()
+                NotifyAction.ACTION_LISTENER_STATE -> updateServiceState()
+            }
         }
     }
 
     override fun onStart() {
         super.onStart()
         // RECEIVER_NOT_EXPORTED：这个广播只给本应用用，别让外部应用能触发刷新
+        val filter = IntentFilter(NotifyAction.ACTION_DATA_CHANGED)
+        filter.addAction(NotifyAction.ACTION_LISTENER_STATE)
         ContextCompat.registerReceiver(
             this,
             dataChanged,
-            IntentFilter(NotifyAction.ACTION_DATA_CHANGED),
+            filter,
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
