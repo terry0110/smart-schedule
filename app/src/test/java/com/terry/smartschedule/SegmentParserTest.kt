@@ -129,4 +129,15 @@ class SegmentParserTest {
         }
         assertTrue("短段落不该进入解析：$calls", calls.none { it == "哈" || it == "好的" })
     }
+
+    @Test
+    fun `两个短段拼起来才能解析`() {
+        // 微信里常见「明天」「开会」各发一条，单看都不到 4 个字；
+        // 以前先按长度筛掉，连拼整体的机会都没有
+        val r = SegmentParser.pick(listOf("明天", "开会")) { parse(it) }
+        assertNotNull("拼起来应该能解析出日期", r)
+        assertEquals(24, r!!.start.dayOfMonth)
+        assertTrue("应该是全天日程", !r.hasTime)
+        assertTrue("标题应该保住，实际：${r.title}", r.title.contains("开会"))
+    }
 }

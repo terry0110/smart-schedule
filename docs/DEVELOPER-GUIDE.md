@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.54（versionCode 54）** · 包名 `com.terry.smartschedule` · 348 个单测 · DB v10
+> 当前版本：**v1.55（versionCode 55）** · 包名 `com.terry.smartschedule` · 349 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（348 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（349 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 54        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.54"
+versionCode = 55        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.55"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -192,7 +192,7 @@ app/src/main/java/com/terry/smartschedule/
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
 │   ├── DateTimeParser.kt       992 行    ★ 中文日程文本解析器，纯 Kotlin，全套正则
-│   ├── SegmentParser.kt         97 行    多段文本里挑一条能用的解析结果
+│   ├── SegmentParser.kt        101 行    多段文本里挑一条能用的解析结果
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
 │   ├── Revise.kt               517 行    ★ 认「改期/取消/换地点/时间有变」+ 挑改哪一条（ReviseTest 守着）
@@ -201,7 +201,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 862 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 874 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -460,6 +460,11 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 按字重合打分，至少重合 8 字且领先第二名 2 倍才自动改，否则走人工确认。
 没有旧时间又只有钟点时返回 `Unclear`，不拿猜出来的日期去改已有日程。
 
+**没有旧时间锚点时（v1.55）**：普通 `Move` / `Relocate` 也不能因为"两天内只有一条"
+就直接认领（`Revise.pick` 的旧口径），同样走 `pickByContent` 正文重合门槛；
+认不准就发确认，不静默挪走无关日程。`Cancel` 保留原口径 —— 它没有人工确认兜底，
+漏取消比标错更糟，而标错可以点进编辑保存恢复。
+
 **不落库**：参数放在 PendingIntent extras 里，进程被杀不丢；应用内卡片只是展示层，
 重启后为空（通知还在，点通知照样能处理）。通知 id 固定
 `NotificationIds.REVISE_ASK_ID`（900_002），避免一次群聊刷屏把通知栏塞满。
@@ -551,16 +556,21 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 - `EXTRA_TEXT` / `EXTRA_BIG_TEXT` / `EXTRA_SUB_TEXT` / `EXTRA_SUMMARY_TEXT`
 - `EXTRA_TEXT_LINES`
 - **不读** `EXTRA_TITLE` / `EXTRA_CONVERSATION_TITLE` —— 微信/QQ 里这两个永远是会话名/昵称。
-  群名叫 `12.31` 时，它的日期会盖掉正文写着的"明天下午3点"，所以从结构上断掉这条路（v1.19）
+  群名叫 `12.31` 时，它的日期会盖掉正文写着的"明天下午3点"，所以从结构上断掉这条路（v1.19）。
+  会话名只用于判重范围：`EXTRA_CONVERSATION_TITLE` 为空时回退 `EXTRA_TITLE`（v1.55），
+  否则所有会话共用一个判重范围，两个群发同一条通知会互相吞。
 
 `SegmentParser.pick()` 策略：**逐段优先、整体兜底**。逐段时要求"标题像件事"
 （`isCleanTitle`：长度 ≥2 且不含数字，"明天下午3"这种带数字的是没挖干净的时间残渣）。
+整体兜底用**所有非空段**拼接（v1.55）：微信里「明天」「开会」各发一条时，
+单段都不到 4 字，以前连拼的机会都没有；逐段解析仍然只跑 ≥4 字的段。
 
 ### 5.6 三档落地（`persist`）
 
 1. `CapturePolicy.rejectReason()` 非空 → 不建（目前只有一条：`TIME_ONLY`，
    只有时间没有日期的不建，日期纯靠猜）
-2. 已存在相似日程 → 记日志"已经有一条一样的"
+2. 已存在相似日程 → 本次带了结束时间、库里那条没有时先补时长（`EventMerge.canFillEnd`），
+   否则记日志"已经有一条一样的"
 3. 与已有日程冲突（时间重叠 / 名称+地点高度重合）→ 进**待确认**
 4. `confidence < AUTO_THRESHOLD(85)` 或 `needsConfirm` → 进**待确认**（不排提醒，发带确认/删除按钮的通知）
 5. 否则直接建 + 排提醒 + 发回执
@@ -872,7 +882,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**348 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 30 个文件、约 3500 行、**349 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -883,7 +893,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `AdversarialInputTest` / `RobustnessTest` | 刁钻/畸形输入不崩 |
 | `DayOnlyDateTest` | 只有"几号"的日期推断 |
 | `TitleNotUsedTest` / `SenderIdTitleTest` | 会话名/发送人不许变标题 |
-| `SegmentParserTest` | 多段选优：时间和事件分成两段时拼整体、中文数字时间标题不抢事件名、只有时间仍能建 |
+| `SegmentParserTest` | 多段选优：时间和事件分成两段时拼整体、两个短段拼起来也能解析、中文数字时间标题不抢事件名、只有时间仍能建 |
 | `ReminderPlanTest` | 什么时候响（含"提醒点已过"那类） |
 | `RemindStyleTest` | 四档的存储值稳定性、单条覆盖全局、脏值兜底 |
 | `OrphanRemindTest` | 孤儿提醒该撤哪些 + 每档渠道都被认定为提醒本体 |
@@ -920,7 +930,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.54-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.55-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1079,7 +1089,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 348 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 349 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1113,4 +1123,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 348 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 349 条测试和保护机制一条条拆掉。

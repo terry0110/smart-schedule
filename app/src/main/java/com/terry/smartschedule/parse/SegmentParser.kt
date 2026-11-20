@@ -28,10 +28,14 @@ object SegmentParser {
         segments: List<String>,
         parse: (String) -> DateTimeParser.Result?
     ): DateTimeParser.Result? {
-        val usable = segments.map { it.trim() }
-            .filter { it.length >= MIN_SEGMENT }
+        // 单段解析仍要求 ≥4 字（"哈哈""好的"不值得跑正则），但整体兜底要用
+        // **所有非空段**：微信里常见「明天」「开会」各发一条，单看都太短，
+        // 拼起来才是一条完整日程。以前这里先按长度筛掉，短段连拼的机会都没有。
+        val trimmed = segments.map { it.trim() }
+            .filter { it.isNotEmpty() }
             .distinct()
-        if (usable.isEmpty()) return null
+        if (trimmed.isEmpty()) return null
+        val usable = trimmed.filter { it.length >= MIN_SEGMENT }
 
         // 1) 逐段：群聊里一条消息通常就是完整的一件事，单独解析出来的标题最干净。
         //
@@ -50,8 +54,8 @@ object SegmentParser {
 
         // 2) 整体：把各段拼起来再试一次。
         //    典型场景：一条消息只有"明天下午3点"，另一条只有"部门开会"，拼起来才完整。
-        if (usable.size > 1) {
-            val whole = parse(usable.joinToString(" "))
+        if (trimmed.size > 1) {
+            val whole = parse(trimmed.joinToString(" "))
                 ?.takeIf { it.dateSource != DateTimeParser.DateSource.NONE }
             if (whole != null && isCleanTitle(whole.title)) return whole
             if (whole != null && fallback == null) fallback = whole

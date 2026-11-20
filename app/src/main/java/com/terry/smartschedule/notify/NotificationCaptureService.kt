@@ -154,9 +154,14 @@ class NotificationCaptureService : NotificationListenerService() {
         // 而且比 getApplicationLabel 稳定 —— 有些 ROM 上 QQ 的 label 是"手机QQ"）
         val app = WatchedApps.displayName(pkg) ?: pkg
 
-        // 会话名只用于判重范围，拿不到就退化为"整个应用"（和旧版一致）
+        // 会话名只用于判重范围，拿不到就退化为"整个应用"（和旧版一致）。
+        //
+        // EXTRA_CONVERSATION_TITLE 在部分微信/QQ 版本上是空的，群名/联系人名在
+        // EXTRA_TITLE 里 —— 这里只把它当判重范围用，**不会进入解析**：
+        // SegmentPicker 仍然不收任何标题字段，群名叫 12.31 也污染不了日期。
         val convo = runCatching {
             n.extras?.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+                ?: n.extras?.getCharSequence(Notification.EXTRA_TITLE)
         }.getOrNull()?.toString().orEmpty()
 
         val segments = extractSegments(n)
@@ -321,7 +326,10 @@ class NotificationCaptureService : NotificationListenerService() {
      * 用户能在处理日志里看到"我认出这是改期，但没敢动" —— 比默默建一条新日程诚实。
      */
     private suspend fun applyMove(app: String, text: String, v: Revise.Verdict.Move) {
-        val target = Repo.findReviseTarget(v.oldStartAt, text, byContent = v.fromTimeChanged)
+        // 没有旧时间锚点时，"两天内只有一条"不代表就是它 —— 同样要过正文重合门槛。
+        // 否则一句「会议改到明天3点」会把唯一的无关日程静默挪走。
+        val byContent = v.fromTimeChanged || v.oldStartAt == null
+        val target = Repo.findReviseTarget(v.oldStartAt, text, byContent = byContent)
         if (target == null) {
             val asked = askReviseUser(text, v)
             CaptureLog.record(
@@ -377,7 +385,8 @@ class NotificationCaptureService : NotificationListenerService() {
      * 比留着旧地址更打扰，下次编辑/重排时自然更新。
      */
     private suspend fun applyRelocate(app: String, text: String, v: Revise.Verdict.Relocate) {
-        val target = Repo.findReviseTarget(v.oldStartAt, text)
+        // 和改期一样：没有旧时间锚点时，唯一候选也要先过正文重合门槛
+        val target = Repo.findReviseTarget(v.oldStartAt, text, byContent = v.oldStartAt == null)
         if (target == null) {
             val asked = askReviseUser(text, v)
             CaptureLog.record(
@@ -414,6 +423,9 @@ class NotificationCaptureService : NotificationListenerService() {
      * 删错了用户找不回来，标错了点一下就没 —— 两边代价不对称。
      */
     private suspend fun applyCancel(app: String, text: String, v: Revise.Verdict.Cancel) {
+        // 取消没有"让用户确认"的兜底路径，所以这里保留原口径：
+        // 有旧时间就按 ±30 分钟找，没有就交给 Revise.pick（只有一条就用）。
+        // 判错也只是打上"已取消"标记，用户点进编辑保存即可恢复，代价比漏取消低。
         val target = Repo.findReviseTarget(v.oldStartAt, text)
         if (target == null) {
             CaptureLog.record(
