@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v2.0（versionCode 64）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v11
+> 当前版本：**v2.0（versionCode 64）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -183,7 +183,7 @@ app/src/main/java/com/terry/smartschedule/
 ├── data/
 │   ├── Category.kt              32 行    五类枚举：key / 展示名 / 颜色
 │   ├── Event.kt                 53 行    日程实体（纯 data class，无 Android 依赖）
-│   ├── EventDb.kt              244 行    SQLiteOpenHelper，DB v11，三张表
+│   ├── EventDb.kt              238 行    SQLiteOpenHelper，DB v10，三张表
 │   ├── Repo.kt                 509 行    全部数据库访问 + 系统日历镜像 + 归档（见 4.4）
 │   ├── EventSearch.kt          126 行    检索：拆词/匹配/高亮区间（纯函数，SearchTest 守着）
 │   ├── EventMerge.kt            60 行    入库前合并：截断版/完整版、改期前缀（EventMergeTest 守着）
@@ -269,7 +269,7 @@ data class Event(
 判断"作废"要用当天 24:00（见 `ReminderPlan.endOfDay`），不能用 `startAt`——
 否则上午十点建的"今天交材料"就永远不会提醒。这是 v1.20 修过的真实 bug。
 
-### 4.2 数据库（`data/EventDb.kt`，DB_VERSION = 11）
+### 4.2 数据库（`data/EventDb.kt`，DB_VERSION = 10）
 
 ```sql
 events(_id, title, title_key, start_at, has_time, location, note, source, done,
@@ -295,8 +295,8 @@ v8→v9 迁移会把老的 `done=1` 统一置为 `archived=1`：新版本右侧�
 换成了“归档”，老勾过的日程应当直接进归档；恢复时 `unarchive` 会把 `done` 清零，
 避免恢复出来的老日程带着删除线又没法取消。
 
-v10→v11 把 v9 之后由提醒页/通知栏写入的 `done=1` 也搬进归档：完成统一由归档表达，
-主列表不再出现“打过勾但既不能取消、也不在归档里”的半完成态。
+完成 = 归档：v10 起提醒页/通知栏的「知道了」直接归档，不再新增 `done=1`；
+存量 `done=1` 不会自动迁移，可在主列表右侧「已完成」手动归档。
 
 `end_at`（v10）：结束时间，0 = 原文没写。解析器从「3点-5点 / 9:00-11:00」里取出来；
 冲突检测按整段区间比较，0 时按当天整天处理（不是估一小时）。日历同步也用它，不再一律写 1 小时。
