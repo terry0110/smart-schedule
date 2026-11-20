@@ -85,6 +85,22 @@ object SeenStore {
         return hitAt
     }
 
+    /**
+     * 只查不写：这个指纹在保留期内处理过吗？
+     *
+     * @return 上次处理时间；没处理过或已过期返回 null
+     */
+    fun seenAt(sig: String, now: Long = System.currentTimeMillis()): Long? {
+        if (sig.isBlank()) return null
+        val db = runCatching { Repo.writable() }.getOrNull() ?: return null
+        return runCatching {
+            db.query(
+                EventDb.S_TABLE, arrayOf("at"), "sig=?", arrayOf(sig),
+                null, null, null
+            ).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        }.getOrNull()?.takeIf { now - it < TTL_MS }
+    }
+
     /** 清空台账。「删除所有本地数据」时调用，否则清完库再抓同一条会判成重复 */
     fun clear() {
         runCatching { Repo.writable().delete(EventDb.S_TABLE, null, null) }

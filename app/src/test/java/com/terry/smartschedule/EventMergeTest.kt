@@ -86,4 +86,28 @@ class EventMergeTest {
     fun `普通的两条不同日程不合并`() {
         assertFalse(EventMerge.shouldMerge(event(), event(title = "部门周会")))
     }
+
+    @Test
+    fun `重复命中时新版本可以把结束时间补给旧条目`() {
+        // 旧版只有开始时间；新版写了 15:00-17:00
+        assertTrue(EventMerge.canFillEnd(event(startAt = at(15)), at(15), true, at(17)))
+        // 旧版甚至是全天，也可以被带区间的版本补全
+        assertTrue(
+            EventMerge.canFillEnd(
+                event(startAt = at(9), hasTime = false), at(9), true, at(11)
+            )
+        )
+    }
+
+    @Test
+    fun `两边都有结束时间时不去猜谁对`() {
+        val existing = event(startAt = at(15)).copy(endAt = at(16))
+        assertFalse(EventMerge.canFillEnd(existing, at(15), true, at(17)))
+    }
+
+    @Test
+    fun `新版本没写结束时间时不做补全`() {
+        assertFalse(EventMerge.canFillEnd(event(startAt = at(15)), at(15), true, 0L))
+        assertFalse(EventMerge.canFillEnd(event(startAt = at(15)), at(15), false, at(17)))
+    }
 }

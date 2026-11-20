@@ -8,6 +8,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.terry.smartschedule.data.Event
 import com.terry.smartschedule.data.EventConflict
+import com.terry.smartschedule.data.EventMerge
 import com.terry.smartschedule.data.Repo
 import com.terry.smartschedule.parse.CategoryRules
 import com.terry.smartschedule.parse.DateTimeParser
@@ -178,11 +179,40 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
+        // ---- 去重：逐段判断，只处理没处理过的内容 ----
+        //
+        // 微信/QQ 的通知会把会话里最近几条消息一起带回来。以前只要任意一段
+        // 处理过就整条跳过 —— 旧消息会把刚来的新消息连坐吞掉，表现是"第二条
+        // 通知毫无反应"。现在逐段过一遍：旧段不再参与解析，新段照常走完整流程。
+        //
+        // 指纹用**归一化键**，不是原文哈希 —— 通知每来一条新消息就整体重渲染，
+        // 前缀、空格、标点都会变，原文哈希每次都不一样，等于没去重。
+        val now = System.currentTimeMillis()
+        val freshSegments = if (force) {
+            segments
+        } else {
+            segments.filter { seg ->
+                val sig = MsgSig.of(seg, convo)
+                if (sig.isEmpty()) return@filter false
+                val recent = recentSigs["$pkg|$sig"]?.let { now - it < DEDUP_WINDOW_MS } == true
+                !recent && SeenStore.seenAt(sig, now) == null
+            }
+        }
+        if (!force && freshSegments.isEmpty()) {
+            verboseLog(app, "所有内容都处理过：$joined")
+            return
+        }
+        val freshJoined = if (force) joined else freshSegments.joinToString(" ").trim()
+        val sigs = freshSegments.map { MsgSig.of(it, convo) }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        sigs.forEach { recentSigs["$pkg|$it"] = now }
+
         // 文件/系统状态类通知：下载完成、文件已保存、安装包、电量提醒…
         // 这类通知里到处是日期（文件名、版本号），靠解析器拦不住 —— 真机上就是这么
         // 把 "smart-schedule-v1.8-debug.apk.1 已保存至…" 建成了一条日程。
-        if (TextFilter.isNonScheduleNotice(joined)) {
-            verboseLog(app, "文件 / 系统 / 资费类通知：$joined")
+        if (TextFilter.isNonScheduleNotice(freshJoined)) {
+            verboseLog(app, "文件 / 系统 / 资费类通知：$freshJoined")
             return
         }
 
@@ -196,7 +226,7 @@ class NotificationCaptureService : NotificationListenerService() {
         //
         // 这里曾经还剩一份粗筛副本排在最前面，把「会不开了」这类没有时间词的
         // 取消/换地点通知直接挡掉了 —— 和上面这段注释正好相反。已删除。
-        val revise = Revise.detect(joined)
+        val revise = Revise.detect(freshJoined)
         val isRevision = revise is Revise.Verdict.Move ||
             revise is Revise.Verdict.Cancel ||
             // 只换地点的话通常没有时间词，必须在这里就认成"变更加期"，
@@ -204,35 +234,17 @@ class NotificationCaptureService : NotificationListenerService() {
             revise is Revise.Verdict.Relocate
 
         // 不像日程的闲聊直接放过，日志留给真正"该识别却没识别"的
-        if (!isRevision && !looksLikeSchedule(joined)) {
-            verboseLog(app, "不含任何时间线索：$joined")
+        if (!isRevision && !looksLikeSchedule(freshJoined)) {
+            verboseLog(app, "不含任何时间线索：$freshJoined")
             return
         }
 
         // 只有"今天/明天"这种模糊日期，又没有任何事件或动作 —— 是在聊天，不是在约事。
         // 典型：「阿伟：今天天气不错」会被建成一条"今天 全天：天气不错"的日程。
-        if (!isRevision && TextFilter.isSmallTalk(joined)) {
-            verboseLog(app, "像闲聊，没有具体安排：$joined")
+        if (!isRevision && TextFilter.isSmallTalk(freshJoined)) {
+            verboseLog(app, "像闲聊，没有具体安排：$freshJoined")
             return
         }
-
-        // 一级去重（进程内热表）：命中就省掉后面的解析。
-        //
-        // 签名用**归一化指纹**，不是原文哈希 —— 微信群通知每来一条新消息就整体重渲染，
-        // 前缀、空格、标点都会变，原文哈希每次都不一样，等于没去重。
-        // 持久化的二级判重在 persist() 里做（进程重启后这一层就没了，靠那层兜）。
-        val sigs = segments.map { MsgSig.of(it, convo) }.filter { it.isNotEmpty() }
-        val now = System.currentTimeMillis()
-        if (!force) {
-            val hit = sigs.firstOrNull { s ->
-                recentSigs["$pkg|$s"]?.let { now - it < DEDUP_WINDOW_MS } == true
-            }
-            if (hit != null) {
-                verboseLog(app, "10 分钟内处理过同样内容")
-                return
-            }
-        }
-        sigs.forEach { recentSigs["$pkg|$it"] = now }
 
         // ---- 改期 / 取消：先看这句是不是在动一条已经存在的日程 ----
         //
@@ -272,11 +284,11 @@ class NotificationCaptureService : NotificationListenerService() {
 
         // 先整体、再逐段。策略本身在 SegmentParser 里，那边有单元测试；
         // 理由是群聊里往往只有一条消息是真日程，拼成一段会互相干扰。
-        val quick = SegmentParser.pick(segments) { ParseService.quickParse(it) }
+        val quick = SegmentParser.pick(freshSegments) { ParseService.quickParse(it) }
 
         if (quick == null) {
             CaptureLog.record(
-                app, joined, CaptureRecord.OUT_SKIPPED,
+                app, freshJoined, CaptureRecord.OUT_SKIPPED,
                 "看懂了是条日程，但没找到可用的日期时间"
             )
             return
@@ -285,14 +297,18 @@ class NotificationCaptureService : NotificationListenerService() {
         val localEnough = quick.confidence >= ParseService.AUTO_THRESHOLD && !quick.needsConfirm
         if (localEnough) {
             val result = quick
-            scope.launch { persist(app, joined, result, Event.SRC_NOTIFY, sigs = sigs, force = force) }
+            scope.launch {
+                persist(app, freshJoined, result, Event.SRC_NOTIFY, sigs = sigs, force = force)
+            }
             return
         }
 
         // 本地解析没到"无人值守"的把握线，但仍然解析出了日期：直接入库、标成待确认。
         // 这里没有"再问云端一次"的分支 —— 应用没有 INTERNET 权限，原文不离开这台设备。
         val result = quick
-        scope.launch { persist(app, joined, result, Event.SRC_NOTIFY, sigs = sigs, force = force) }
+        scope.launch {
+            persist(app, freshJoined, result, Event.SRC_NOTIFY, sigs = sigs, force = force)
+        }
     }
 
     /**
@@ -521,7 +537,22 @@ class NotificationCaptureService : NotificationListenerService() {
 
         val unsure = r.confidence < ParseService.AUTO_THRESHOLD || r.needsConfirm
 
-        if (Repo.existsSimilar(r.title, r.startAt, r.location)) {
+        val same = Repo.findSameEvent(r.title, r.startAt, r.location, windowMs = 5 * 60_000L)
+        if (same != null) {
+            // 同一条又推了一遍：如果这次带了结束时间、库里那条没有，先补上再返回。
+            // 去重不能把「六点到九点」里的九点一起吞掉。
+            if (EventMerge.canFillEnd(same, r.startAt, r.hasTime, r.endAt)) {
+                // 用时长换算到库里那条的开始时间：两条可能差几分钟，结束点要跟着走
+                val duration = r.endAt - r.startAt
+                Repo.update(same.copy(hasTime = true, endAt = same.startAt + duration))
+                CaptureLog.record(
+                    app, text, CaptureRecord.OUT_CREATED,
+                    "已给「${same.title}」补上结束时间：" +
+                        TimeFmt.rangeSummary(same.startAt, same.startAt + duration, true, null)
+                )
+                broadcastChanged()
+                return same.id
+            }
             CaptureLog.record(
                 app, text, CaptureRecord.OUT_SKIPPED,
                 "已经有一条一样的日程了（标题、时间、地点都相同）"

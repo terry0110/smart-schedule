@@ -40,7 +40,17 @@ object EventDeduper {
             ?: group.drop.firstNotNullOfOrNull { it.location?.takeIf(String::isNotBlank) }
         val note = keep.note?.takeIf { it.isNotBlank() }
             ?: group.drop.firstNotNullOfOrNull { it.note?.takeIf(String::isNotBlank) }
-        return keep.copy(location = location, note = note)
+        // 结束时间也要补：keep 可能是"带钟点但没有结束时间"的旧版，
+        // drop 里有完整区间（六点到九点）。只删不并会把九点一起删掉。
+        val duration = (keep.endAt - keep.startAt).takeIf { keep.hasTime && it > 0 }
+            ?: group.drop.firstNotNullOfOrNull { e ->
+                (e.endAt - e.startAt).takeIf {
+                    keep.hasTime && e.hasTime && it > 0 &&
+                        kotlin.math.abs(e.startAt - keep.startAt) <= EventMerge.SAME_TIME_MS
+                }
+            }
+        val endAt = if (duration != null) keep.startAt + duration else keep.endAt
+        return keep.copy(location = location, note = note, endAt = endAt)
     }
 
     fun group(events: List<Event>): List<Group> {

@@ -33,6 +33,17 @@ object EventMerge {
         return kotlin.math.abs(existing.startAt - incoming.startAt) <= SAME_TIME_MS
     }
 
+    /**
+     * 去重命中时，这次的新信息能不能把结束时间补给库里那条。
+     *
+     * 「已经有了」不等于"新信息可以丢"：先收到「明天下午六点开会」（没有结束时间），
+     * 后来完整版写了「六点到九点」，如果直接按重复跳过，九点就永远补不上去。
+     * 只补"库里没有、这次有"的情况；两边都有结束时间时不猜谁对。
+     */
+    fun canFillEnd(existing: Event, incomingStartAt: Long, incomingHasTime: Boolean, incomingEndAt: Long): Boolean =
+        incomingHasTime && incomingEndAt > incomingStartAt &&
+            (!existing.hasTime || existing.endAt <= existing.startAt)
+
     /** 地点一边为空时不算冲突；两边都有值就必须相同 */
     fun sameLocation(a: String?, b: String?): Boolean {
         val x = a?.trim().orEmpty()

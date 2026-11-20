@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.52（versionCode 52）** · 包名 `com.terry.smartschedule` · 340 个单测 · DB v10
+> 当前版本：**v1.53（versionCode 53）** · 包名 `com.terry.smartschedule` · 345 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（335 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（345 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 52        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.52"
+versionCode = 53        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.53"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -186,9 +186,9 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── EventDb.kt              228 行    SQLiteOpenHelper，DB v10，三张表
 │   ├── Repo.kt                 468 行    全部数据库访问 + 系统日历镜像 + 归档（见 4.4）
 │   ├── EventSearch.kt          126 行    检索：拆词/匹配/高亮区间（纯函数，SearchTest 守着）
-│   ├── EventMerge.kt            41 行    入库前合并：截断版/完整版、改期前缀（EventMergeTest 守着）
+│   ├── EventMerge.kt            60 行    入库前合并：截断版/完整版、改期前缀（EventMergeTest 守着）
 │   ├── EventConflict.kt        165 行    入库前冲突检查：时间区间 / 名称+地点重合（EventConflictTest 守着）
-│   ├── EventDeduper.kt         124 行    已存重复日程的分组（并查集；清理重复按钮用，EventDeduperTest 守着）
+│   ├── EventDeduper.kt         154 行    已存重复日程的分组（并查集；清理重复按钮用，EventDeduperTest 守着）
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
 │   ├── DateTimeParser.kt       992 行    ★ 中文日程文本解析器，纯 Kotlin，全套正则
@@ -201,7 +201,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 821 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 852 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -216,7 +216,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── RemindStyle.kt           98 行    四档提醒方式的枚举与解析规则
 │   ├── CaptureLog.kt           205 行    抓取流水（SQLite，24h TTL + 500 行上限）
 │   ├── MsgSig.kt                48 行    通知内容指纹（SHA-256，带会话维度）
-│   ├── SeenStore.kt            111 行    已处理内容台账（msg_seen 表，插入即判重）
+│   ├── SeenStore.kt            127 行    已处理内容台账（msg_seen 表，逐段查询/插入即判重）
 │   ├── ServiceHealth.kt        215 行    监听状态、重绑、电池优化、自启动设置跳转
 │   ├── KeepAliveService.kt     131 行    前台服务保活（常驻低优先级通知）
 │   ├── PendingActionReceiver.kt 123 行  通知按钮：确认 / 删除 / 知道了 / 稍后
@@ -380,22 +380,30 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 | 3 | **白名单** `WatchedApps.isWatched(pkg)` | 放开等于所有应用往解析器灌文本 | 见 5.2 |
 | 4 | 文本长度 ≥ 4（`MIN_TEXT`） | "好的""哈哈"别浪费解析 | — |
 | 5 | 常驻通知 / 纯计数折叠摘要 | 音乐播放器、下载进度 | 折叠摘要不能一律丢，有 ROM 把正文放里面 |
-| 6 | `TextFilter.isNonScheduleNotice()` | 文件/下载/资费/营销 | 见 5.3 |
-| 7 | `looksLikeSchedule()` 粗筛 | 故意放宽，只看"像不像在说事" | 见 5.4 |
-| 8 | `TextFilter.isSmallTalk()` | "今天天气不错" | 见 5.3 |
+| 6 | **逐段去重**（L1 内存 + L2 `msg_seen`） | 旧消息不该重复建，但也不能连坐吞掉新消息 | 见下面 |
+| 7 | `TextFilter.isNonScheduleNotice()` | 文件/下载/资费/营销 | 见 5.3，只看新段 |
+| 8 | `looksLikeSchedule()` 粗筛 | 故意放宽，只看"像不像在说事" | 见 5.4，只看新段 |
+| 9 | `TextFilter.isSmallTalk()` | "今天天气不错" | 见 5.3，只看新段 |
 
-之后是**改期 / 取消判定**（v1.37：动词识别夹在粗筛前，动作在去重后）
-→ **两级消息去重**（v1.31）→ 分段解析 → 三档落地：
+**改期 / 取消判定**（v1.37）夹在去重之后、粗筛之前，后面才是分段解析 → 三档落地。
 
 | 级 | 位置 | 范围 | 挡什么 |
 |---|---|---|---|
-| L1 | `recentSigs` 内存 LRU（64 条，10 分钟） | 进程内 | 通知重渲染的高频重复，命中就省掉解析 |
-| L2 | `SeenStore.claim()` → `msg_seen` 表（12h TTL + 2000 行） | 跨进程/重启 | 服务被回收后系统重发通知栏旧通知 |
+| L1 | `recentSigs` 内存 LRU（64 条，10 分钟） | 进程内 | 通知重渲染的高频重复 |
+| L2 | `SeenStore.seenAt()` → `msg_seen` 表（12h TTL + 2000 行） | 跨进程/重启 | 服务被回收后系统重发通知栏旧通知 |
 
 两级都用 `MsgSig.of(正文, 会话名)` 做签名：`TextNorm.key` 归一化（剥发送者/
 群名前缀、去空白标点 emoji、全角转半角）再 SHA-256 取 16 hex。
 **判重只在同一会话内比对**——两个群发同一条通知是两件事。
-手动扫描（force=true）跳过两级判重，但事件级 `existsSimilar` 仍然兜底。
+
+去重粒度是**段**，不是整条通知（v1.53）：微信/QQ 会把会话里最近几条消息一起带回来，
+以前"任意一段命中就整条跳过"，旧消息会把刚来的新消息连坐吞掉。
+现在先用 `seenAt` 过一遍，旧段不进入后续解析，新段照常走完整流程；
+解析和落库都只看新段。
+
+事件级 `findSameEvent` 仍然兜底：命中后如果这次带了结束时间、库里那条没有，
+会把结束时间补上去（`EventMerge.canFillEnd`），不再把「六点到九点」的九点按重复丢掉。
+手动扫描（force=true）跳过两级消息判重，但仍走事件级去重。
 清洗库（"删除所有本地数据"）必须同时 `SeenStore.clear()`，否则删完抓不回来。
 
 纯函数守卫在 `DedupeTest`（归一化边界、指纹稳定性、会话隔离），改 `TextNorm`
@@ -858,7 +866,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**335 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 30 个文件、约 3500 行、**345 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -882,8 +890,8 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `ReviseTest` | 改期/取消/换地点句式、地点与时间的区分、上下午推断、改哪一条、该不该弹确认 |
 | `ReviseInboxTest` | 应用内改期待办：去重 / 上限 5 / 3 天过期 / 移除 |
 | `TimeChangedNoticeTest` | 「现时间有变」识别、旧版+新版取最后、正文重合选目标（单候选也要过门槛）、钟点解析失败不乱改、裸「时间调整」不误判 |
-| `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断 |
-| `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段/跳过已改期条目 |
+| `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断、重复命中时补结束时间（两边都有则不猜） |
+| `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段与结束时间/跳过已改期条目 |
 | `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
 | `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期）；纯时间描述不会被误判成改期 |
 
@@ -906,7 +914,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.52-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.53-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1065,7 +1073,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 335 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 345 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1099,4 +1107,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 335 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 345 条测试和保护机制一条条拆掉。

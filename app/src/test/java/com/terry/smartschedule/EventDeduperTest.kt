@@ -134,6 +134,25 @@ class EventDeduperTest {
     }
 
     @Test
+    fun `删除重复时保留项能继承被删条目的结束时间`() {
+        val keep = event(id = 1, startAt = at(11, 21, 15))
+        val drop = event(id = 2, startAt = at(11, 21, 15))
+            .copy(endAt = at(11, 21, 21))
+        val merged = EventDeduper.mergeKeep(EventDeduper.Group(keep, listOf(drop)))
+        assertEquals(at(11, 21, 21), merged.endAt)
+    }
+
+    @Test
+    fun `保留项已有结束时间时不被被删条目覆盖`() {
+        val keep = event(id = 1, startAt = at(11, 21, 15))
+            .copy(endAt = at(11, 21, 18))
+        val drop = event(id = 2, startAt = at(11, 21, 15))
+            .copy(endAt = at(11, 21, 21))
+        val merged = EventDeduper.mergeKeep(EventDeduper.Group(keep, listOf(drop)))
+        assertEquals(at(11, 21, 18), merged.endAt)
+    }
+
+    @Test
     fun `创建时间拉成链的三条也能归成一组`() {
         // A≈B、B≈C，但 A 与 C 的创建时间差了 22 小时，不再直接相似。
         // 以 A 为锚的贪心会把 C 漏掉；并查集应该把三条连成一个分量。

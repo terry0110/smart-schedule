@@ -29,6 +29,7 @@ import com.terry.smartschedule.R
 import com.terry.smartschedule.data.Event
 import com.terry.smartschedule.data.EventConflict
 import com.terry.smartschedule.data.EventEdit
+import com.terry.smartschedule.data.EventMerge
 import com.terry.smartschedule.data.Repo
 import com.terry.smartschedule.databinding.ActivityMainBinding
 import com.terry.smartschedule.databinding.SheetPreviewBinding
@@ -1033,8 +1034,20 @@ class MainActivity : AppCompatActivity() {
             // 就能把同一条日程加出两份。
             val dup = Repo.findSameEvent(title, startAt, event.location)
             if (dup != null) {
-                toast("已经有了：${TimeFmt.summary(dup.startAt, dup.hasTime, dup.location)}")
-                done(false)
+                // 这次写了结束时间、库里那条没有 —— 先把时长补上，别按重复丢掉
+                if (EventMerge.canFillEnd(dup, event.startAt, event.hasTime, event.endAt)) {
+                    val duration = event.endAt - event.startAt
+                    Repo.update(dup.copy(hasTime = true, endAt = dup.startAt + duration))
+                    toast(
+                        "已补上结束时间：" +
+                            TimeFmt.rangeSummary(dup.startAt, dup.startAt + duration, true, dup.location)
+                    )
+                    reload()
+                    done(true)
+                } else {
+                    toast("已经有了：${TimeFmt.summary(dup.startAt, dup.hasTime, dup.location)}")
+                    done(false)
+                }
                 return@launch
             }
 
