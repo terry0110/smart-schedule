@@ -200,10 +200,10 @@ class SettingsActivity : AppCompatActivity() {
                     .setTitle("手动设置自启动")
                     .setMessage(
                         "你的系统没有通用的自启动设置页，请按机型找：\n\n" +
-                            "· 小米：「设置 → 应用设置 → 应用管理 → 智能日程 → 自启动」\n" +
-                            "· 华为：「设置 → 应用 → 应用启动管理 → 智能日程 → 手动管理」\n" +
-                            "· OPPO/一加：「设置 → 电池 → 应用耗电管理 → 智能日程 → 允许后台运行」\n" +
-                            "· vivo：「设置 → 电池 → 后台高耗电 → 允许智能日程」\n\n" +
+                            "· 小米：「设置 → 应用设置 → 应用管理 → 智汇日程 → 自启动」\n" +
+                            "· 华为：「设置 → 应用 → 应用启动管理 → 智汇日程 → 手动管理」\n" +
+                            "· OPPO/一加：「设置 → 电池 → 应用耗电管理 → 智汇日程 → 允许后台运行」\n" +
+                            "· vivo：「设置 → 电池 → 后台高耗电 → 允许智汇日程」\n\n" +
                             "找不到就先用「允许后台常驻」，效果差不多。"
                     )
                     .setPositiveButton("知道了", null)
@@ -386,7 +386,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun promptGrant() {
         MaterialAlertDialogBuilder(this)
             .setTitle("还差一步授权")
-            .setMessage("监听通知需要系统授权。在接下来的列表里找到「智能日程」，打开「允许通知使用权」。")
+            .setMessage("监听通知需要系统授权。在接下来的列表里找到「智汇日程」，打开「允许通知使用权」。")
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton("去授权") { _, _ -> openListenerSettings() }
             .show()
@@ -420,7 +420,7 @@ class SettingsActivity : AppCompatActivity() {
      *
      * 之前是点一次发一次，用户连点就会一遍遍打断系统正在进行的绑定 ——
      * 表现成"有时候点一两次就行、有时候点很多次反而不行"。
-     * 现在等的那几秒按钮置灰，最多等 4.5 秒，还不行就引导走系统设置重置授权。
+     * 现在等的那几秒按钮置灰，最多等约 1.6 秒，还不行就引导走系统设置重置授权。
      */
     private fun startReconnect() {
         if (reconnecting) return

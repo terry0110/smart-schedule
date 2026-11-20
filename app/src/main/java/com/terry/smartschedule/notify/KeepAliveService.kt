@@ -109,13 +109,13 @@ class KeepAliveService : Service() {
             // 文案跟主界面、设置页用同一个状态源，避免三处对上不
             val (title, text) = when (ServiceHealth.status(c)) {
                 ListenerStatus.RUNNING ->
-                    "智能日程 · 正在监听" to "识别到日程会自动记录"
+                    "智汇日程 · 正在监听" to "识别到日程会自动记录"
                 ListenerStatus.CONNECTING ->
-                    "智能日程 · 监听未连接" to "点这里重新连接"
+                    "智汇日程 · 监听未连接" to "点这里重新连接"
                 ListenerStatus.NO_PERMISSION ->
-                    "智能日程 · 缺少通知使用权" to "点这里去开启"
+                    "智汇日程 · 缺少通知使用权" to "点这里去开启"
                 ListenerStatus.OFF ->
-                    "智能日程 · 后台运行中" to "通知监听已关闭"
+                    "智汇日程 · 后台运行中" to "通知监听已关闭"
             }
             return NotificationCompat.Builder(c, CH_KEEP)
                 .setSmallIcon(R.drawable.ic_notify)

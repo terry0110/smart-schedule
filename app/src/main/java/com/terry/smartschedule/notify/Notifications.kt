@@ -519,7 +519,7 @@ object Notifications {
     private fun lockScreenSafe(c: Context, text: String): android.app.Notification =
         NotificationCompat.Builder(c, CH_INFO)
             .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle("智能日程")
+            .setContentTitle("智汇日程")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
