@@ -11,10 +11,10 @@ import java.time.ZoneId
 /**
  * 新日程落库前的冲突检查。
  *
- * 两类命中：
- * - 同一时间（两条都带钟点，相差 ≤5 分钟）；
- * - 名称 + 地点高度重合（前后 3 天内）。
- * 两类都只决定"要不要让人确认"，不直接改数据。
+ * 时间口径：
+ * - 有结束时间 → 按完整区间比；
+ * - 没结束时间 / 全天日程 → 按当天整天比（不是"开始时间 + 1 小时"）。
+ * 另外再看名称+地点是否高度重合（前后 3 天）。
  */
 class EventConflictTest {
 
@@ -50,19 +50,10 @@ class EventConflictTest {
     )
 
     @Test
-    fun `同一时间不同标题也会被拦下`() {
-        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15))
-        val incoming = event(id = 0, title = "高数作业", startAt = at(11, 21, 15, 3), location = null)
-        val hit = EventConflict.check(incoming, listOf(existing), now)
-        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
-        assertEquals(1L, hit?.event?.id)
-    }
-
-    @Test
-    fun `开始时间不同但时间段重叠也要拦下`() {
+    fun `有结束时间时按完整区间判断重叠`() {
         val existing = event(
             id = 1, title = "部门周会", startAt = at(11, 21, 15),
-            endAt = at(11, 21, 17)
+            endAt = at(11, 21, 17), location = null
         )
         val incoming = event(
             id = 0, title = "高数作业", startAt = at(11, 21, 16, 30),
@@ -74,18 +65,23 @@ class EventConflictTest {
     }
 
     @Test
-    fun `没写结束时间时按默认一小时算重叠`() {
-        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15))
-        val incoming = event(id = 0, title = "高数作业", startAt = at(11, 21, 15, 30), location = null)
-        val hit = EventConflict.check(incoming, listOf(existing), now)
-        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
+    fun `区间不重叠不算冲突`() {
+        val existing = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 15),
+            endAt = at(11, 21, 16), location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 16, 30),
+            endAt = at(11, 21, 17, 30), location = null
+        )
+        assertNull(EventConflict.check(incoming, listOf(existing), now))
     }
 
     @Test
     fun `首尾相接不算冲突`() {
         val existing = event(
             id = 1, title = "部门周会", startAt = at(11, 21, 15),
-            endAt = at(11, 21, 16)
+            endAt = at(11, 21, 16), location = null
         )
         val incoming = event(
             id = 0, title = "高数作业", startAt = at(11, 21, 16),
@@ -95,24 +91,64 @@ class EventConflictTest {
     }
 
     @Test
-    fun `开始时间差超过默认时长且不重叠时不算冲突`() {
-        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15))
-        val incoming = event(id = 0, title = "高数作业", startAt = at(11, 21, 17, 6), location = null)
-        assertNull(EventConflict.check(incoming, listOf(existing), now))
+    fun `没写结束时间按全天算`() {
+        // 两条都只有开始时间：现在都按当天整天处理，应该冲突
+        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 9), location = null)
+        val incoming = event(id = 0, title = "高数作业", startAt = at(11, 21, 15), location = null)
+        val hit = EventConflict.check(incoming, listOf(existing), now)
+        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
     }
 
     @Test
-    fun `隔天同一钟点不会被当成时间重叠`() {
-        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15))
-        val incoming = event(id = 0, title = "高数作业", startAt = at(11, 22, 15), location = null)
+    fun `全天日程和当天定时日程冲突`() {
+        val allDay = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 9),
+            hasTime = false, location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 16, 30),
+            endAt = at(11, 21, 17, 30), location = null
+        )
+        val hit = EventConflict.check(incoming, listOf(allDay), now)
+        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
+    }
+
+    @Test
+    fun `全天日程不影响第二天`() {
+        val allDay = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 9),
+            hasTime = false, location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 22, 16, 30),
+            endAt = at(11, 22, 17, 30), location = null
+        )
+        assertNull(EventConflict.check(incoming, listOf(allDay), now))
+    }
+
+    @Test
+    fun `隔天同一钟点不会冲突`() {
+        val existing = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 15),
+            endAt = at(11, 21, 16), location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 22, 15),
+            endAt = at(11, 22, 16), location = null
+        )
         assertNull(EventConflict.check(incoming, listOf(existing), now))
     }
 
     @Test
     fun `名称和地点重合会作为可能的变更拦下`() {
-        val existing = event(id = 1, startAt = at(11, 21, 15))
+        val existing = event(
+            id = 1, startAt = at(11, 21, 15), endAt = at(11, 21, 17)
+        )
         // 标题是截断版，日期/时间都变了，地点没变
-        val incoming = event(id = 0, title = "贺老师盖章", startAt = at(11, 22, 16))
+        val incoming = event(
+            id = 0, title = "贺老师盖章", startAt = at(11, 22, 16),
+            endAt = at(11, 22, 17)
+        )
         val hit = EventConflict.check(incoming, listOf(existing), now)
         assertEquals(EventConflict.Kind.SIMILAR, hit?.kind)
         assertEquals(1L, hit?.event?.id)
@@ -171,10 +207,11 @@ class EventConflictTest {
         // now = 16:00，已有日程 15:00-17:00 还没结束
         val ongoing = event(
             id = 1, title = "部门周会", startAt = at(11, 20, 15),
-            endAt = at(11, 20, 17)
+            endAt = at(11, 20, 17), location = null
         )
         val incoming = event(
-            id = 0, title = "高数作业", startAt = at(11, 20, 16, 30), location = null
+            id = 0, title = "高数作业", startAt = at(11, 20, 16, 30),
+            endAt = at(11, 20, 17, 30), location = null
         )
         val hit = EventConflict.check(incoming, listOf(ongoing), at(11, 20, 16))
         assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
@@ -182,12 +219,32 @@ class EventConflictTest {
 
     @Test
     fun `时间重叠优先于名称地点重合`() {
-        val similar = event(id = 1, title = "贺老师签假条盖章", startAt = at(11, 21, 14))
-        val overlap = event(id = 2, title = "部门周会", startAt = at(11, 21, 15))
-        val incoming = event(id = 0, title = "贺老师签假条盖章", startAt = at(11, 21, 15, 2))
+        val similar = event(
+            id = 1, title = "贺老师签假条盖章", startAt = at(11, 21, 14),
+            endAt = at(11, 21, 15)
+        )
+        val overlap = event(
+            id = 2, title = "部门周会", startAt = at(11, 21, 15),
+            endAt = at(11, 21, 16), location = null
+        )
+        val incoming = event(
+            id = 0, title = "贺老师签假条盖章", startAt = at(11, 21, 15, 2),
+            endAt = at(11, 21, 16, 2)
+        )
         val hit = EventConflict.check(incoming, listOf(similar, overlap), now)
         assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
         assertEquals(2L, hit?.event?.id)
+    }
+
+    @Test
+    fun `没写结束时间的事件会覆盖当天所有时段`() {
+        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 9), location = null)
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 20),
+            endAt = at(11, 21, 21), location = null
+        )
+        val hit = EventConflict.check(incoming, listOf(existing), now)
+        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
     }
 
     @Test

@@ -20,9 +20,6 @@ import java.time.temporal.ChronoUnit
  */
 object EventConflict {
 
-    /** 默认时长：原文没写结束时间时，按 1 小时估。冲突检测不能用"开始时间点"比 */
-    const val DEFAULT_DURATION_MS = 60 * 60_000L
-
     /** 只和前后 3 天内的日程比"名称/地点重合"，避免把远处的系列日程翻出来 */
     const val LOOKAROUND_DAYS = 3L
 
@@ -51,14 +48,14 @@ object EventConflict {
         if (pool.isEmpty()) return null
 
         // 1) 时间重叠优先。标题不同也算硬冲突 —— 那个时段已经有一件事了。
-        //    不能只看开始时间：15:00-17:00 的会和 16:00 的会同样冲突。
-        if (incoming.hasTime) {
-            val inEnd = intervalEnd(incoming)
-            pool.asSequence()
-                .filter { it.hasTime && overlaps(incoming.startAt, inEnd, it.startAt, intervalEnd(it)) }
-                .minByOrNull { kotlin.math.abs(it.startAt - incoming.startAt) }
-                ?.let { return Hit(Kind.OVERLAP, it) }
-        }
+        //    有结束时间就按完整区间比；没有结束时间/全天日程按"当天整天"比，
+        //    不能只看开始时间，也不能只估一小时。
+        val inStart = intervalStart(incoming)
+        val inEnd = intervalEnd(incoming)
+        pool.asSequence()
+            .filter { overlaps(inStart, inEnd, intervalStart(it), intervalEnd(it)) }
+            .minByOrNull { kotlin.math.abs(intervalStart(it) - inStart) }
+            ?.let { return Hit(Kind.OVERLAP, it) }
 
         // 2) 名称 + 地点高度重合
         val zone = ZoneId.systemDefault()
@@ -77,9 +74,32 @@ object EventConflict {
         return best?.let { Hit(Kind.SIMILAR, it.first) }
     }
 
-    /** 结束时间；原文没写或数据非法时按默认时长兜底 */
+    /**
+     * 日程占用的开始点：
+     * - 有明确结束时间 → 用真实开始时间；
+     * - 没结束时间 / 全天日程 → 从当天 00:00 算，整段按全天处理。
+     */
+    fun intervalStart(e: Event): Long =
+        if (e.hasTime && e.endAt > e.startAt) e.startAt else startOfDay(e.startAt)
+
+    /**
+     * 日程占用的结束点：
+     * - 有明确结束时间 → 用真实结束时间（可跨天）；
+     * - 没结束时间 / 全天日程 → 次日 00:00。
+     *
+     * 注意：0 不是"时长一小时"，而是"这条没有结束时间"，按全天处理。
+     */
     fun intervalEnd(e: Event): Long =
-        if (e.endAt > e.startAt) e.endAt else e.startAt + DEFAULT_DURATION_MS
+        if (e.hasTime && e.endAt > e.startAt) e.endAt
+        else startOfDay(e.startAt) + 24 * 60 * 60_000L
+
+    private fun startOfDay(ms: Long): Long =
+        Instant.ofEpochMilli(ms)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
 
     /** 半开区间重叠：首尾相接（15:00-16:00 与 16:00）不算冲突 */
     fun overlaps(aStart: Long, aEnd: Long, bStart: Long, bEnd: Long): Boolean =
@@ -117,14 +137,18 @@ object EventConflict {
 
     /** 给用户看的待确认理由 */
     fun reason(hit: Hit): String {
-        val whenText = TimeFmt.rangeSummary(
-            hit.event.startAt, hit.event.endAt, hit.event.hasTime, hit.event.location
-        )
+        val e = hit.event
+        // 冲突按"有结束时间→区间 / 没有→全天"算，展示口径要和判断一致
+        val whenText = if (e.hasTime && e.endAt > e.startAt) {
+            TimeFmt.rangeSummary(e.startAt, e.endAt, true, e.location)
+        } else {
+            TimeFmt.summary(e.startAt, false, e.location)
+        }
         return when (hit.kind) {
             Kind.OVERLAP ->
-                "与「${hit.event.title}」（$whenText）时间重叠，请确认是不是两件事"
+                "与「${e.title}」（$whenText）时间重叠，请确认是不是两件事"
             Kind.SIMILAR ->
-                "与「${hit.event.title}」（$whenText）名称和地点高度重合，可能是同一条的变化，请确认"
+                "与「${e.title}」（$whenText）名称和地点高度重合，可能是同一条的变化，请确认"
         }
     }
 }
