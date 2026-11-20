@@ -224,7 +224,7 @@ app/src/main/java/com/terry/smartschedule/
 │   └── NotifyAction.kt          65 行    action / extras 常量（含 LISTENER_STATE）
 ├── ui/
 │   ├── MainActivity.kt        1482 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
-│   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
+│   ├── ArchiveActivity.kt      339 行    归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部
 │   ├── SettingsActivity.kt     724 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
@@ -830,7 +830,7 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 | `SettingsActivity` | false | 主界面右上角齿轮 | `am start` 进不去 |
 | `ReminderActivity` | false | 全屏提醒 / 点通知 | `excludeFromRecents`，`showWhenLocked`，`turnScreenOn` |
 | `CaptureLogActivity` | false | 设置页"查看处理记录" | — |
-| `ArchiveActivity` | false | 主界面顶部归档图标 | 归档日志：恢复 / 删除 / 多选批量删除 / 删除全部 |
+| `ArchiveActivity` | false | 主界面顶部归档图标 | 归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部 |
 
 调试时"进不去设置页"不是 bug，是 `exported=false`。要测设置页只能从界面点进去。
 

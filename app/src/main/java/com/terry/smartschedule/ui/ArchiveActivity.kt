@@ -60,6 +60,7 @@ class ArchiveActivity : AppCompatActivity() {
         b.btnDeleteAll.setOnClickListener { confirmDeleteAll() }
         b.btnSelectClose.setOnClickListener { exitSelection() }
         b.btnSelectAll.setOnClickListener { toggleSelectAll() }
+        b.btnSelectRestore.setOnClickListener { restoreSelected() }
         b.btnSelectDelete.setOnClickListener { confirmDeleteSelected() }
 
         adapter = ArchiveAdapter(
@@ -151,6 +152,8 @@ class ArchiveActivity : AppCompatActivity() {
             getString(R.string.select_all)
         }
         val hasSel = selectedIds.isNotEmpty()
+        b.btnSelectRestore.isEnabled = hasSel
+        b.btnSelectRestore.alpha = if (hasSel) 1f else 0.4f
         b.btnSelectDelete.isEnabled = hasSel
         b.btnSelectDelete.alpha = if (hasSel) 1f else 0.4f
         adapter.setSelection(true, selectedIds.toSet())
@@ -158,17 +161,36 @@ class ArchiveActivity : AppCompatActivity() {
 
     private fun restore(event: Event) {
         lifecycleScope.launch {
-            Repo.unarchive(event.id)
-            // 恢复后如果还是未来、未取消、非待确认，把提醒重新排上；
-            // unarchive 已把 done 清零（新语义里"结束"=归档，done 是老字段）
-            if (!event.pending && !event.revoked) {
-                ReminderScheduler.schedule(
-                    this@ArchiveActivity,
-                    event.copy(archived = false, done = false)
-                )
-            }
+            restoreEvents(listOf(event))
             toast("已恢复：${event.title}")
             reload()
+        }
+    }
+
+    /** 恢复多选中的条目：先置回未完成/未归档，再按需重排提醒 */
+    private fun restoreSelected() {
+        val ids = selectedIds.toList()
+        if (ids.isEmpty()) return
+        lifecycleScope.launch {
+            val events = Repo.archived().filter { it.id in ids }
+            restoreEvents(events)
+            exitSelection()
+            reload()
+            toast("已恢复 ${events.size} 条")
+        }
+    }
+
+    private suspend fun restoreEvents(events: List<Event>) {
+        events.forEach { ev ->
+            Repo.unarchive(ev.id)
+            // 恢复后如果还是未来、未取消、非待确认，把提醒重新排上；
+            // unarchive 已把 done 清零（新语义里"结束"=归档，done 是老字段）
+            if (!ev.pending && !ev.revoked) {
+                ReminderScheduler.schedule(
+                    this,
+                    ev.copy(archived = false, done = false)
+                )
+            }
         }
     }
 
@@ -303,6 +325,8 @@ private class ArchiveAdapter(
 
             b.btnRestore.isVisible = !selectionMode
             b.btnDelete.isVisible = !selectionMode
+            b.btnRestore.setOnClickListener { onRestore(event) }
+            b.btnDelete.setOnClickListener { onDelete(event) }
             b.root.setOnClickListener {
                 if (selectionMode) onToggleSelection(event)
             }
