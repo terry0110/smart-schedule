@@ -6,12 +6,10 @@
 #   ./pack.sh release    只出 release（要分发时才需要，签名配置已备好）
 #   ./pack.sh all        两个都出
 #
-# ⚠️ 约定（Terry 2026-10-25）：**一般情况下只出 debug，明确要求时才出 release。**
-#    release 包体积小、debuggable=false，但它不能覆盖安装 debug 包（签名不同），
-#    切换会丢日程数据。日常迭代没有理由付这个代价。所以不要用 all 顺手带出 release。
-#
-# 默认只出 debug：每次顺带构建 release 只是白等两分钟。
-# 签名配置（keystore + signingConfigs）一直保持可用，想出的那条命令就能出。
+# ⚠️ 约定（Terry 2026-11-20）：**发布到 GitHub Releases 只上传 release 变体。**
+#    debug 包只用于本机调试，不再上传。
+#    注意：release 和 debug 签名不同，不能互相覆盖安装；从 debug 切到 release
+#    必须先卸载，而卸载会丢日程数据。日常迭代仍可用 debug 包在本机验证。
 #
 # 为什么要脚本：APK 文件名不带版本号的话，手机上留下好几个同名文件，
 # 装完根本分不清是哪一个、装的是新版还是旧版。

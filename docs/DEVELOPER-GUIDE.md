@@ -97,11 +97,11 @@ cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
 ### 2.1 铁律
 
-> **一般情况下只出 debug 包；只有明确说"要 release"时才出 release。**
-> 不要用 `./pack.sh all` 顺手带一个 release 出来。
+> **发布到 GitHub Releases 只上传 release 变体；debug 包只用于本机调试，不再发布。**
 
-原因不是懒：**debug 和 release 签名不同，不能互相覆盖安装**。从 release 换到 debug
+原因不是勤快：**debug 和 release 签名不同，不能互相覆盖安装**。从 debug 换到 release
 （或反过来）必须先卸载，而卸载会**清掉日程库**——本应用还没有导出/导入功能。
+所以发布口径要统一成 release，避免用户在两种签名之间来回切换。
 
 这条约定已经写进 `pack.sh` 头部注释、`README.md` 和作者的工作区记忆里，不要违反。
 

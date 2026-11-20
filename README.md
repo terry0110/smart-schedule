@@ -14,12 +14,13 @@
 
 ## 更新日志
 
-### v1.62 —— 应用名统一 + 签名说明修正
+### v1.62 —— 应用名统一 + 发布包改为 release
 
 - 通知栏常驻通知、锁屏脱敏通知、授权弹窗、自启动指引里残留的旧名「智能日程」
   统一改成「智汇日程」，用户在系统列表里能按同一个名字找到应用
-- 使用说明纠正安装提示：当前分发的是 debug 包，可直接覆盖旧 debug 包；
-  只有早期 v1.24 / v1.25 的 release 包因签名不同需要先卸载
+- **发布口径改为只上传 release 变体**；debug 包只用于本机调试，不再放到 Releases
+- 使用说明同步纠正：当前安装包是 release 签名，和旧 debug 包不能互相覆盖，
+  切换前必须先卸载（会清掉日程库）
 - 修正重连等待时间的过时注释（实际约 1.6 秒）
 
 **验证**：354/354 单测、lint 0 error。
@@ -1500,7 +1501,7 @@ QQ 通知的 `EXTRA_TITLE` 是 `always online(2条新消息)` —— **19 个字
 - **退到后台后，最近任务的缩略图是空白**（`FLAG_SECURE`），回到前台即可正常截图
 - 设置页底部有「删除所有本地数据」，删完不留痕
 
-⚠️ **debug 包的边界**（`android:debuggable=true`），自己用可以，但要清楚：
+⚠️ **debug 包（仅本机调试）的边界**（`android:debuggable=true`），发布用的 release 包没有这些问题：
 
 - `adb` 用 `run-as com.terry.smartschedule` 能直接读应用私有目录，**不需要 root**。这条路会绕过上面 `allowBackup=false` 的防护
 - 调试器可以附加进程读内存，`adb` 也能直接授予运行时权限
@@ -1515,17 +1516,16 @@ QQ 通知的 `EXTRA_TITLE` 是 `always online(2条新消息)` —— **19 个字
 ### 一条命令出包
 
 ```bash
-./pack.sh          # 只出 debug（默认，日常用这个）
-./pack.sh release  # 单独出 release（要分发时才用）
-./pack.sh all      # 两个都出
+./pack.sh release  # 发布用（GitHub Releases 只上传这个）
+./pack.sh          # 本机调试用，不上传
+./pack.sh all      # 两个都出（一般不用）
 ```
 
-> **约定：一般情况下只出 debug，明确要求时才出 release。**
-> 不要用 `all` 顺手带出 release —— 白等两分钟，而且 release 和 debug 签名不同、
-> 不能覆盖安装，切换会丢日程数据。要出的时候单独 `./pack.sh release`。
+> **约定（2026-11-20 起）：GitHub Releases 只上传 release 变体；debug 包只留在本机调试。**
+> 两种签名不同、不能覆盖安装，切换会丢日程数据。本机验证可以用 debug，
+> 但对外的安装包统一用 release。
 
-默认只出 debug。
-**签名配置一直保持可用**（keystore 和 `signingConfigs` 都在），要出的时候一条命令就行。
+**签名配置一直保持可用**（keystore 和 `signingConfigs` 都在），`./pack.sh release` 一条命令就行。
 
 产物自动按版本号命名，版本号从 `app/build.gradle.kts` 里读：
 
