@@ -449,7 +449,8 @@ object Repo {
         newLocation: String? = null
     ): Event? {
         val old = findById(id) ?: return null
-        // 时长跟着开始时间走：原文给了结束时间就保持同样的时长，否则继续用默认时长兜底
+        // 时长跟着开始时间走：原文给了结束时间就保持同样时长；没给就保持 0，
+        // 冲突检测会按"开始到当天结束"兜底。
         val duration = (old.endAt - old.startAt).takeIf { it > 0 } ?: 0L
         val next = old.copy(
             startAt = newStartAt,

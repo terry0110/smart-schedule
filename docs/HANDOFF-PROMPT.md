@@ -46,11 +46,11 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 4. **加数据库字段走六步**：`CREATE TABLE` 加列（带 DEFAULT）→ `DB_VERSION` +1 →
    `onUpgrade` 加 `if (oldVersion < N)` 分支 → `Event.toValues()` → `Repo.toEvent()` →
    检查有没有 SELECT 白名单。
-5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**327 条全绿、0 error** 才算完事。
+5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**335 条全绿、0 error** 才算完事。
 
 ## 当前状态（2026-11-20）
 
-- **v1.48** / versionCode 48 / DB v10 / 327 条单测 / lint 0 error
+- **v1.49** / versionCode 49 / DB v10 / 335 条单测 / lint 0 error
 - 已有功能：通知抓取建日程、手动粘贴识别、四档提醒方式、分类、检索、
   系统日历同步、改期 / 取消 / 换地点 / 「时间有变」识别、改期没认准时的人工确认、
   应用内改期待办、前台即时刷新、换地点后已弹提醒原地更新、自动改期撤旧提醒、

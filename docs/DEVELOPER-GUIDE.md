@@ -4,8 +4,8 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.48（versionCode 48）** · 包名 `com.terry.smartschedule` · 327 个单测 · DB v10
-> 最后更新：2026-11-19
+> 当前版本：**v1.49（versionCode 49）** · 包名 `com.terry.smartschedule` · 335 个单测 · DB v10
+> 最后更新：2026-11-20
 
 ---
 
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（327 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（335 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -187,7 +187,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── Repo.kt                 468 行    全部数据库访问 + 系统日历镜像 + 归档（见 4.4）
 │   ├── EventSearch.kt          126 行    检索：拆词/匹配/高亮区间（纯函数，SearchTest 守着）
 │   ├── EventMerge.kt            41 行    入库前合并：截断版/完整版、改期前缀（EventMergeTest 守着）
-│   ├── EventConflict.kt        135 行    入库前冲突检查：时间重叠 / 名称+地点重合（EventConflictTest 守着）
+│   ├── EventConflict.kt        165 行    入库前冲突检查：时间区间 / 名称+地点重合（EventConflictTest 守着）
 │   ├── EventDeduper.kt         124 行    已存重复日程的分组（并查集；清理重复按钮用，EventDeduperTest 守着）
 │   └── EventEdit.kt             24 行    "编辑后要不要重置完成状态"（纯函数）
 ├── parse/
@@ -475,13 +475,17 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 **历史数据**：库里已经存在的重复条目不会被自动删除 —— 批量删用户数据需要单独的确认设计，
 入库路径只保证"以后不再建"。
 
-### 5.1.3 入库前冲突确认（v1.46–v1.48，`data/EventConflict.kt`）
+### 5.1.3 入库前冲突确认（v1.46 起，`data/EventConflict.kt`）
 
 合并之后、insert 之前，`persist` 还会和已有日程对一遍：
 
-- **时间重叠**：两条都带钟点，区间有交集 → 待确认，标题不同也算。
-  15:00-17:00 与 16:30 会冲突；15:00-16:00 与 16:00 首尾相接不算。
-  原文没写结束时间 / 全天日程按当天整天算；正在进行的日程也参与。
+- **时间重叠**：按原文能确定的区间比，优先级如下：
+  1. 原文写了结束时间（如「六点到九点」）→ 开始到结束；
+  2. 只写了开始时间（如「六点开始」）→ 开始到当天结束；
+  3. 完全没写钟点（全天日程）→ 当天 00:00 到次日 00:00。
+
+  区间有交集 → 待确认，标题不同也算。15:00-16:00 与 16:00 首尾相接不算。
+  正在进行的日程也参与。
 - **名称 + 地点高度重合**：前后 3 天内、标题字符重合 ≥80%、地点归一化后相同或互相包含
   → 待确认，原因写明像哪一条。
 
@@ -844,7 +848,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**327 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 30 个文件、约 3500 行、**335 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -870,8 +874,8 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `TimeChangedNoticeTest` | 「现时间有变」识别、旧版+新版取最后、正文重合选目标（单候选也要过门槛）、钟点解析失败不乱改、裸「时间调整」不误判 |
 | `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断 |
 | `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段/跳过已改期条目 |
-| `EventConflictTest` | 入库前冲突：有结束时间按区间、没写结束时间/全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
-| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、到5号楼不是时间 |
+| `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
+| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期） |
 
 ### 10.2 写新测试的规矩
 
@@ -892,7 +896,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.48-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.49-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1048,7 +1052,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 327 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 335 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1082,4 +1086,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 327 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 335 条测试和保护机制一条条拆掉。

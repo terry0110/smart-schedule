@@ -901,7 +901,7 @@ class MainActivity : AppCompatActivity() {
         val timeChanged = EventEdit.shouldResetDone(
             old.startAt, old.hasTime, startAt, hasTime
         )
-        // 时长跟着开始时间走：原来有结束时间就保持同样的时长，否则按默认时长
+        // 时长跟着开始时间走：原来有结束时间就保持同样时长；原来没有就保持 0
         val duration = (old.endAt - old.startAt).takeIf { it > 0 } ?: 0L
 
         val updated = old.copy(

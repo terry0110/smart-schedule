@@ -10,7 +10,10 @@ import java.time.temporal.ChronoUnit
  * 新日程与库里已有日程的冲突检查。
  *
  * 只回答"要不要让人确认"，不改数据：
- * 1. **同一时间**：两条都带钟点，开始时间相差 ≤5 分钟 —— 硬冲突；
+ * 1. **时间重叠**：按原文能确定的占用区间比 ——
+ *    - 写了结束时间 → 开始到结束（例如「六点到九点」）；
+ *    - 只写了开始时间 → 开始到当天结束（例如「六点开始」）；
+ *    - 完全没写钟点（全天日程）→ 当天 00:00 到次日 00:00。
  * 2. **名称 + 地点高度重合**：前后 3 天内，标题字符重合 ≥80%，
  *    地点归一化后相同或互相包含 —— 可能只是同一条消息的另一个版本。
  *
@@ -33,6 +36,8 @@ object EventConflict {
 
     data class Hit(val kind: Kind, val event: Event)
 
+    private const val DAY_MS = 24 * 60 * 60_000L
+
     /**
      * @param now 显式传入，测试才能固定"过去/未来"
      * @return 最需要确认的一条；没有冲突返回 null
@@ -48,8 +53,8 @@ object EventConflict {
         if (pool.isEmpty()) return null
 
         // 1) 时间重叠优先。标题不同也算硬冲突 —— 那个时段已经有一件事了。
-        //    有结束时间就按完整区间比；没有结束时间/全天日程按"当天整天"比，
-        //    不能只看开始时间，也不能只估一小时。
+        //    区间按原文能确定的范围来：有结束时间用结束时间；只说了开始时间
+        //    就算到当天结束；完全没写钟点才按全天。
         val inStart = intervalStart(incoming)
         val inEnd = intervalEnd(incoming)
         pool.asSequence()
@@ -76,22 +81,25 @@ object EventConflict {
 
     /**
      * 日程占用的开始点：
-     * - 有明确结束时间 → 用真实开始时间；
-     * - 没结束时间 / 全天日程 → 从当天 00:00 算，整段按全天处理。
+     * - 有钟点（无论有没有结束时间）→ 真实开始时间；
+     * - 全天日程 → 当天 00:00。
      */
     fun intervalStart(e: Event): Long =
-        if (e.hasTime && e.endAt > e.startAt) e.startAt else startOfDay(e.startAt)
+        if (e.hasTime) e.startAt else startOfDay(e.startAt)
 
     /**
-     * 日程占用的结束点：
-     * - 有明确结束时间 → 用真实结束时间（可跨天）；
-     * - 没结束时间 / 全天日程 → 次日 00:00。
+     * 日程占用的结束点，优先级和原文一致：
+     * 1. 原文写了结束时间 → 用真实结束时间（可跨天）；
+     * 2. 只写了开始时间（`endAt` 为 0）→ 从开始一直占到当天结束；
+     * 3. 完全没写钟点（全天）→ 次日 00:00。
      *
-     * 注意：0 不是"时长一小时"，而是"这条没有结束时间"，按全天处理。
+     * 注意：0 不是"时长一小时"，而是"这条没有结束时间"。
      */
-    fun intervalEnd(e: Event): Long =
-        if (e.hasTime && e.endAt > e.startAt) e.endAt
-        else startOfDay(e.startAt) + 24 * 60 * 60_000L
+    fun intervalEnd(e: Event): Long {
+        if (!e.hasTime) return startOfDay(e.startAt) + DAY_MS
+        if (e.endAt > e.startAt) return e.endAt
+        return startOfDay(e.startAt) + DAY_MS
+    }
 
     private fun startOfDay(ms: Long): Long =
         Instant.ofEpochMilli(ms)
@@ -138,11 +146,14 @@ object EventConflict {
     /** 给用户看的待确认理由 */
     fun reason(hit: Hit): String {
         val e = hit.event
-        // 冲突按"有结束时间→区间 / 没有→全天"算，展示口径要和判断一致
-        val whenText = if (e.hasTime && e.endAt > e.startAt) {
-            TimeFmt.rangeSummary(e.startAt, e.endAt, true, e.location)
-        } else {
-            TimeFmt.summary(e.startAt, false, e.location)
+        val whenText = when {
+            !e.hasTime -> TimeFmt.summary(e.startAt, false, e.location)
+            e.endAt > e.startAt -> TimeFmt.rangeSummary(e.startAt, e.endAt, true, e.location)
+            else -> {
+                // 只说了开始时间：明确写"起"，别让人误以为是"开始后一小时"
+                val head = TimeFmt.summary(e.startAt, true, null) + " 起"
+                if (e.location.isNullOrBlank()) head else "$head · ${e.location}"
+            }
         }
         return when (hit.kind) {
             Kind.OVERLAP ->

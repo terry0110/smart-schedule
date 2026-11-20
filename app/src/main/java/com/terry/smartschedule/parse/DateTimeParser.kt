@@ -70,7 +70,7 @@ object DateTimeParser {
         val warnings: List<String> = emptyList(),
         /**
          * 结束时间；0 表示原文没写结束时间。
-         * 冲突检测遇到 0 会按默认时长算，别把它当成"全天"。
+         * 冲突检测里：hasTime=true 时按"开始到当天结束"算，hasTime=false 才按全天。
          */
         val endAt: Long = 0L
     ) {

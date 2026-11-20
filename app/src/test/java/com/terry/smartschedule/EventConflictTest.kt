@@ -3,7 +3,9 @@ package com.terry.smartschedule
 import com.terry.smartschedule.data.Event
 import com.terry.smartschedule.data.EventConflict
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -11,9 +13,10 @@ import java.time.ZoneId
 /**
  * 新日程落库前的冲突检查。
  *
- * 时间口径：
- * - 有结束时间 → 按完整区间比；
- * - 没结束时间 / 全天日程 → 按当天整天比（不是"开始时间 + 1 小时"）。
+ * 时间口径（和原文一致，按优先级）：
+ * - 写了结束时间 → 按完整区间比；
+ * - 只写了开始时间 → 从开始算到当天结束；
+ * - 完全没写钟点（全天）→ 按当天整天比。
  * 另外再看名称+地点是否高度重合（前后 3 天）。
  */
 class EventConflictTest {
@@ -91,12 +94,47 @@ class EventConflictTest {
     }
 
     @Test
-    fun `没写结束时间按全天算`() {
-        // 两条都只有开始时间：现在都按当天整天处理，应该冲突
+    fun `只写开始时间时从开始算到当天结束`() {
+        // 09:00 开始、没写结束 → [09:00, 次日 00:00)
         val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 9), location = null)
         val incoming = event(id = 0, title = "高数作业", startAt = at(11, 21, 15), location = null)
         val hit = EventConflict.check(incoming, listOf(existing), now)
         assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
+    }
+
+    @Test
+    fun `开始之前就结束的日程不算冲突`() {
+        // 已有 15:00 开始（到当天结束），新日程 14:00-14:30 在它之前结束
+        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15), location = null)
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 14),
+            endAt = at(11, 21, 14, 30), location = null
+        )
+        assertNull(EventConflict.check(incoming, listOf(existing), now))
+    }
+
+    @Test
+    fun `只写开始时间不会跨到第二天`() {
+        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15), location = null)
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 22, 10),
+            endAt = at(11, 22, 11), location = null
+        )
+        assertNull(EventConflict.check(incoming, listOf(existing), now))
+    }
+
+    @Test
+    fun `原文有结束时间时按结束时间算，不拖到当天结束`() {
+        // 已有 09:00-10:00，新日程 15:00-16:00 不应该因为"没写结束时间"而冲突
+        val existing = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 9),
+            endAt = at(11, 21, 10), location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 15),
+            endAt = at(11, 21, 16), location = null
+        )
+        assertNull(EventConflict.check(incoming, listOf(existing), now))
     }
 
     @Test
@@ -237,7 +275,7 @@ class EventConflictTest {
     }
 
     @Test
-    fun `没写结束时间的事件会覆盖当天所有时段`() {
+    fun `只写开始时间的日程从开始覆盖到当天结束`() {
         val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 9), location = null)
         val incoming = event(
             id = 0, title = "高数作业", startAt = at(11, 21, 20),
@@ -245,6 +283,34 @@ class EventConflictTest {
         )
         val hit = EventConflict.check(incoming, listOf(existing), now)
         assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
+    }
+
+    @Test
+    fun `全天日程覆盖当天凌晨`() {
+        val allDay = event(
+            id = 1, title = "部门周会", startAt = at(11, 21, 9),
+            hasTime = false, location = null
+        )
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 0, 30),
+            endAt = at(11, 21, 1), location = null
+        )
+        val hit = EventConflict.check(incoming, listOf(allDay), now)
+        assertEquals(EventConflict.Kind.OVERLAP, hit?.kind)
+    }
+
+    @Test
+    fun `只写开始时间的冲突理由显示起而非全天`() {
+        val existing = event(id = 1, title = "部门周会", startAt = at(11, 21, 15), location = null)
+        val incoming = event(
+            id = 0, title = "高数作业", startAt = at(11, 21, 16),
+            endAt = at(11, 21, 17), location = null
+        )
+        val hit = EventConflict.check(incoming, listOf(existing), now)
+        val text = EventConflict.reason(hit!!)
+        assertTrue(text.contains("15:00"))
+        assertTrue(text.contains("起"))
+        assertFalse(text.contains("全天"))
     }
 
     @Test

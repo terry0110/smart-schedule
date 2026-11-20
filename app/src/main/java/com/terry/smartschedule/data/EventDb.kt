@@ -108,7 +108,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
             db.execSQL("UPDATE $TABLE SET archived = 1 WHERE done = 1")
         }
-        // v9 -> v10：结束时间。老数据保持 0（时长未知），冲突检测按默认时长兜底。
+        // v9 -> v10：结束时间。老数据保持 0，冲突检测按"开始到当天结束"兜底。
         if (oldVersion < 10) {
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN end_at INTEGER NOT NULL DEFAULT 0")
         }
