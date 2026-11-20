@@ -89,6 +89,16 @@ class NicknameAndCarrierTest {
     }
 
     @Test
+    fun `中文数字时间点不是闲聊`() {
+        // 通知正文常常只写中文数字时间：「明天下午六点到九点」
+        assertFalse(TextFilter.isSmallTalk("明天下午六点到九点"))
+        assertFalse(TextFilter.isSmallTalk("明天六点到九点"))
+        assertFalse(TextFilter.isSmallTalk("明晚七点半聚餐"))
+        // 单说「一点」不算时间：「明天一点小事」还是聊天
+        assertTrue(TextFilter.isSmallTalk("明天一点小事"))
+    }
+
+    @Test
     fun `有事件词或动作的仍算日程`() {
         // 有动作"去"：这条虽然模糊，但确实是在说一件事
         assertFalse(TextFilter.isSmallTalk("李四：明天去北京"))

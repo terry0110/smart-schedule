@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.50（versionCode 50）** · 包名 `com.terry.smartschedule` · 335 个单测 · DB v10
+> 当前版本：**v1.51（versionCode 51）** · 包名 `com.terry.smartschedule` · 337 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 50        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.50"
+versionCode = 51        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.51"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -202,7 +202,7 @@ app/src/main/java/com/terry/smartschedule/
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
 │   ├── NotificationCaptureService.kt 752 行  ★ 通知监听主链路
-│   ├── TextFilter.kt           166 行    文件/资费/营销/闲聊判别（纯函数）
+│   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
 │   ├── SegmentPicker.kt         69 行    从通知 extras 里挑候选文本字段
@@ -518,6 +518,11 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
   就一律当日程（「明天下午3点前把报告.docx发我」不能被当文件通知丢掉）
 - `isSmallTalk(text)`：只有模糊日期（今天/明天/周X）+ 没有明确时间点 + 没有绝对日期 +
   没有动作词 + 没有事件词 → 判为闲聊
+  - "明确时间点"包含中文数字写法（v1.51）：带时段词的「下午六点」「明晚七点半」，
+    以及区间「六点到九点」。单说「一点」不算，避免把「明天一点小事」建成日程。
+    之前只认阿拉伯数字，「明天下午六点到九点」会被误判成闲聊，通知完全没反应
+- `RE_REAL_SCHEDULE`（文件/营销判别里的"真实时间"）用同一套中文时间信号，
+  避免「明天下午六点到九点」被文件类关键词抢走
 
 ### 5.4 粗筛（`looksLikeSchedule`）
 
@@ -880,7 +885,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断 |
 | `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段/跳过已改期条目 |
 | `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
-| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期） |
+| `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期） |
 
 ### 10.2 写新测试的规矩
 
@@ -901,7 +906,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.50-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.51-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

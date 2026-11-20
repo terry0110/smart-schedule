@@ -78,6 +78,13 @@ class TimeRangeParseTest {
     }
 
     @Test
+    fun `中文数字的六点到九点也能带出结束时间`() {
+        val r = parse("明天下午六点到九点开会")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 18, 0), ldt(r.startAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), ldt(r.endAt))
+    }
+
+    @Test
     fun `只有开始时间时结束时间为0`() {
         val r = parse("明天下午3点开会")
         assertEquals(0L, r.endAt)
