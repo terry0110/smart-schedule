@@ -45,6 +45,9 @@ object NotifyAction {
     /** 新时间（毫秒）。没有这个 extra = 原文没说清新时间，只能让用户手动改 */
     const val EXTRA_REVISE_NEW_START = "revise_new_start"
 
+    /** 新时间段的结束时间（毫秒）。0 = 原文没写结束时间，沿用原日程时长 */
+    const val EXTRA_REVISE_NEW_END = "revise_new_end"
+
     /** 新时间有没有具体钟点（false = 只说了改到哪天） */
     const val EXTRA_REVISE_NEW_HAS_TIME = "revise_new_has_time"
 

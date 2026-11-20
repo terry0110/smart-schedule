@@ -53,7 +53,9 @@ object Revise {
             val meridiemGuessed: Boolean,
             val newLocation: String? = null,
             /** true = 来自「时间有变」这类没有旧时间锚点的句子，匹配时要看正文重合度 */
-            val fromTimeChanged: Boolean = false
+            val fromTimeChanged: Boolean = false,
+            /** 新时间段的结束时间；0 表示原文没写结束时间，沿用原日程时长 */
+            val newEndAt: Long = 0L
         ) : Verdict
 
         /**
@@ -135,7 +137,9 @@ object Revise {
     private data class Parsed(
         val dt: LocalDateTime,
         val hasTime: Boolean,
-        val dateSource: DateTimeParser.DateSource
+        val dateSource: DateTimeParser.DateSource,
+        /** 原文写了结束时间才有值；0 表示没写 */
+        val endAt: Long = 0L
     )
 
     /**
@@ -222,7 +226,8 @@ object Revise {
             newStartAt = toMillis(fixed.first),
             newHasTime = parsed.hasTime,
             meridiemGuessed = fixed.second,
-            fromTimeChanged = true
+            fromTimeChanged = true,
+            newEndAt = endFor(fixed.first, parsed)
         )
     }
 
@@ -289,7 +294,8 @@ object Revise {
             newStartAt = toMillis(fixed.first),
             newHasTime = true,
             meridiemGuessed = fixed.second,
-            newLocation = loc
+            newLocation = loc,
+            newEndAt = endFor(fixed.first, parsed)
         )
     }
 
@@ -436,7 +442,21 @@ object Revise {
         val normalized = cnHourToDigit(chunk)
         val r = DateTimeParser.parse(normalized, now) ?: return null
         val dt = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.startAt), ZoneId.systemDefault())
-        return Parsed(dt, r.hasTime, r.dateSource)
+        return Parsed(dt, r.hasTime, r.dateSource, r.endAt)
+    }
+
+    /**
+     * 把新片段里的时长换到最终的新开始时间上。
+     *
+     * 「改到后天上午十点到十二点」里的 10:00-12:00 是在 inheritDate / fixMeridiem
+     * 挪动之前算的，结束点必须跟着新开始时间走，不能直接拿片段里的时间戳。
+     * 原文没写结束时间时返回 0，调用方沿用原日程时长。
+     */
+    private fun endFor(newStart: LocalDateTime, parsed: Parsed): Long {
+        if (!parsed.hasTime) return 0L
+        val duration = parsed.endAt - toMillis(parsed.dt)
+        if (duration <= 0) return 0L
+        return toMillis(newStart) + duration
     }
 
     /**

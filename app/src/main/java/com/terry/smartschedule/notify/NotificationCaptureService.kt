@@ -333,7 +333,9 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
-        val timeSame = target.startAt == v.newStartAt && target.hasTime == v.newHasTime
+        val endSame = v.newEndAt <= v.newStartAt || target.endAt == v.newEndAt
+        val timeSame = target.startAt == v.newStartAt &&
+            target.hasTime == v.newHasTime && endSame
         val locationSame = v.newLocation == null || target.location == v.newLocation
         if (timeSame && locationSame) {
             CaptureLog.record(app, text, CaptureRecord.OUT_SKIPPED, "改期后的时间/地点和原日程一样，不用动")
@@ -347,7 +349,8 @@ class NotificationCaptureService : NotificationListenerService() {
         }
 
         val updated = Repo.reschedule(
-            target.id, v.newStartAt, v.newHasTime, note, v.newLocation
+            target.id, v.newStartAt, v.newHasTime, note, v.newLocation,
+            newEndAt = v.newEndAt
         ) ?: return
         // 旧时间和旧地点都作废了。先撤掉还挂在通知栏里的那条提醒（否则改到更晚时，
         // 它会带着旧时间/旧地点一直挂到新时间才被覆盖），再撤旧闹钟、按新时间重排。
@@ -358,7 +361,7 @@ class NotificationCaptureService : NotificationListenerService() {
         broadcastChanged()
 
         val oldLabel = TimeFmt.summary(target.startAt, target.hasTime, target.location)
-        val newLabel = TimeFmt.summary(v.newStartAt, v.newHasTime, updated.location)
+        val newLabel = TimeFmt.rangeSummary(v.newStartAt, v.newEndAt, v.newHasTime, updated.location)
         val tail = if (v.meridiemGuessed) "（上下午是按原时间推的，你核一眼）" else ""
         CaptureLog.record(
             app, text, CaptureRecord.OUT_CREATED,
@@ -439,6 +442,7 @@ class NotificationCaptureService : NotificationListenerService() {
 
         val oldStart: Long?
         val newStart: Long?
+        val newEndAt: Long
         val newHasTime: Boolean
         val guessed: Boolean
         val newLocation: String?
@@ -446,6 +450,7 @@ class NotificationCaptureService : NotificationListenerService() {
             is Revise.Verdict.Move -> {
                 oldStart = v.oldStartAt
                 newStart = v.newStartAt
+                newEndAt = v.newEndAt
                 newHasTime = v.newHasTime
                 guessed = v.meridiemGuessed
                 newLocation = v.newLocation
@@ -453,6 +458,7 @@ class NotificationCaptureService : NotificationListenerService() {
             is Revise.Verdict.Relocate -> {
                 oldStart = v.oldStartAt
                 newStart = null
+                newEndAt = 0L
                 newHasTime = true
                 guessed = false
                 newLocation = v.newLocation
@@ -460,6 +466,7 @@ class NotificationCaptureService : NotificationListenerService() {
             is Revise.Verdict.Unclear -> {
                 oldStart = v.oldStartAt
                 newStart = null
+                newEndAt = 0L
                 newHasTime = true
                 guessed = false
                 newLocation = null
@@ -469,7 +476,9 @@ class NotificationCaptureService : NotificationListenerService() {
 
         if (Repo.reviseCandidates(oldStart).isEmpty()) return false
 
-        Notifications.postReviseAsk(this, text, oldStart, newStart, newHasTime, guessed, newLocation)
+        Notifications.postReviseAsk(
+            this, text, oldStart, newStart, newEndAt, newHasTime, guessed, newLocation
+        )
 
         // 应用内也留一张待办卡片：通知可能被划掉，卡片在主界面还能看到。
         // 进程被杀就没了 —— 那时通知仍在，点通知照样能处理（4A 的取舍）。
@@ -481,7 +490,8 @@ class NotificationCaptureService : NotificationListenerService() {
                 newStartAt = newStart,
                 newHasTime = newHasTime,
                 meridiemGuessed = guessed,
-                newLocation = newLocation
+                newLocation = newLocation,
+                newEndAt = newEndAt
             )
         )
         // 主界面正开着时让它立刻出现卡片，不用切出去再回来

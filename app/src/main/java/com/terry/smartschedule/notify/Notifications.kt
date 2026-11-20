@@ -421,6 +421,7 @@ object Notifications {
         text: String,
         oldStartAt: Long?,
         newStartAt: Long?,
+        newEndAt: Long,
         newHasTime: Boolean,
         meridiemGuessed: Boolean,
         newLocation: String? = null
@@ -428,7 +429,8 @@ object Notifications {
         if (!hasPermission(c)) return
         val body = when {
             newStartAt != null ->
-                "改到 ${TimeFmt.summary(newStartAt, newHasTime, newLocation)}？点开确认改的是哪一条"
+                "改到 ${TimeFmt.rangeSummary(newStartAt, newEndAt, newHasTime, newLocation)}？" +
+                    "点开确认改的是哪一条"
             newLocation != null ->
                 "换到 $newLocation？点开确认改的是哪一条"
             else -> "通知里没说清新时间，点开选一条手动改"
@@ -442,6 +444,7 @@ object Notifications {
                 Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(NotifyAction.EXTRA_REVISE_TEXT, text.take(200))
             putExtra(NotifyAction.EXTRA_REVISE_NEW_START, newStartAt ?: -1L)
+            putExtra(NotifyAction.EXTRA_REVISE_NEW_END, newEndAt)
             putExtra(NotifyAction.EXTRA_REVISE_NEW_HAS_TIME, newHasTime)
             putExtra(NotifyAction.EXTRA_REVISE_OLD_START, oldStartAt ?: -1L)
             putExtra(NotifyAction.EXTRA_REVISE_MERIDIEM, meridiemGuessed)

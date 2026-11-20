@@ -26,6 +26,8 @@ object ReviseInbox {
         val newHasTime: Boolean,
         val meridiemGuessed: Boolean,
         val newLocation: String?,
+        /** 新时间段的结束时间；0 = 原文没写，沿用原日程时长 */
+        val newEndAt: Long = 0L,
         val at: Long = System.currentTimeMillis()
     )
 

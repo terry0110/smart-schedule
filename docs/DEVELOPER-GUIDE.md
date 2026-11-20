@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.53（versionCode 53）** · 包名 `com.terry.smartschedule` · 345 个单测 · DB v10
+> 当前版本：**v1.54（versionCode 54）** · 包名 `com.terry.smartschedule` · 348 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（345 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（348 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 53        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.53"
+versionCode = 54        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.54"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -184,7 +184,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── Category.kt              32 行    五类枚举：key / 展示名 / 颜色
 │   ├── Event.kt                 53 行    日程实体（纯 data class，无 Android 依赖）
 │   ├── EventDb.kt              228 行    SQLiteOpenHelper，DB v10，三张表
-│   ├── Repo.kt                 468 行    全部数据库访问 + 系统日历镜像 + 归档（见 4.4）
+│   ├── Repo.kt                 517 行    全部数据库访问 + 系统日历镜像 + 归档（见 4.4）
 │   ├── EventSearch.kt          126 行    检索：拆词/匹配/高亮区间（纯函数，SearchTest 守着）
 │   ├── EventMerge.kt            60 行    入库前合并：截断版/完整版、改期前缀（EventMergeTest 守着）
 │   ├── EventConflict.kt        165 行    入库前冲突检查：时间区间 / 名称+地点重合（EventConflictTest 守着）
@@ -195,13 +195,13 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── SegmentParser.kt         97 行    多段文本里挑一条能用的解析结果
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
-│   ├── Revise.kt               440 行    ★ 认「改期/取消/换地点/时间有变」+ 挑改哪一条（ReviseTest 守着）
+│   ├── Revise.kt               517 行    ★ 认「改期/取消/换地点/时间有变」+ 挑改哪一条（ReviseTest 守着）
 │   └── Prefs.kt                159 行    全部设置项（SharedPreferences）
 ├── sync/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 852 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 862 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -210,9 +210,9 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── ReminderPlan.kt          90 行    ★ "该在什么时候响"（纯函数）
 │   ├── ReminderScheduler.kt    205 行    落闹钟、取消、补发、孤儿提醒清扫
 │   ├── ReminderReceiver.kt      42 行    闹钟到点 → 发通知
-│   ├── Notifications.kt        512 行    ★ 渠道、四档提醒、脱敏通知、改期询问、按钮 PendingIntent
+│   ├── Notifications.kt        556 行    ★ 渠道、四档提醒、脱敏通知、改期询问、按钮 PendingIntent
 │   ├── NotificationIds.kt       48 行    通知 id / requestCode 的纯算术（有单测）
-│   ├── ReviseInbox.kt           56 行    应用内改期待办（纯内存，上限 5 / 3 天）
+│   ├── ReviseInbox.kt           67 行    应用内改期待办（纯内存，上限 5 / 3 天）
 │   ├── RemindStyle.kt           98 行    四档提醒方式的枚举与解析规则
 │   ├── CaptureLog.kt           205 行    抓取流水（SQLite，24h TTL + 500 行上限）
 │   ├── MsgSig.kt                48 行    通知内容指纹（SHA-256，带会话维度）
@@ -221,7 +221,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── KeepAliveService.kt     131 行    前台服务保活（常驻低优先级通知）
 │   ├── PendingActionReceiver.kt 123 行  通知按钮：确认 / 删除 / 知道了 / 稍后
 │   ├── BootReceiver.kt          37 行    开机 / 应用更新后重排提醒 + 补发
-│   └── NotifyAction.kt          42 行    action / extras 常量
+│   └── NotifyAction.kt          59 行    action / extras 常量
 ├── ui/
 │   ├── MainActivity.kt        1287 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
@@ -438,6 +438,12 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 「下午四点的会提前至3点」里那个 3 点没有上下午，旧时间在下午就推成 15:00，
 并在日志里写明「上下午是按原时间推的」。
+
+**新时段的结束时间（v1.54）**：`Move.newEndAt` 保存原文写出的结束时间（「改到六点到九点」）。
+`endFor()` 把片段解析出的时长换到最终的新开始时间上 —— 日期从「原定」继承过、
+上下午按旧时间推过，结束点都跟着走，不会错位。`Repo.reschedule(newEndAt=…)`
+优先用新时长，原文没写结束时间才沿用旧时长；通知栏确认框、应用内改期卡片
+（`ReviseInbox.Item.newEndAt` + `EXTRA_REVISE_NEW_END`）走同一套字段。
 
 **信息不全时交给用户（v1.38 最小版，v1.39 扩到地点）**：
 
@@ -866,7 +872,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**345 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 30 个文件、约 3500 行、**348 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
@@ -887,7 +893,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `WatchedAppsTest` | 白名单 |
 | `SearchTest` | 检索拆词 / 多词 AND / 归一化口径 / 高亮区间 / 命中片段 |
 | `CalTimeTest` | 全天日程 UTC 零点换算（东八区错一天的老坑） |
-| `ReviseTest` | 改期/取消/换地点句式、地点与时间的区分、上下午推断、改哪一条、该不该弹确认 |
+| `ReviseTest` | 改期/取消/换地点句式、地点与时间的区分、上下午推断、改哪一条、该不该弹确认、改期带出新时段结束时间 |
 | `ReviseInboxTest` | 应用内改期待办：去重 / 上限 5 / 3 天过期 / 移除 |
 | `TimeChangedNoticeTest` | 「现时间有变」识别、旧版+新版取最后、正文重合选目标（单候选也要过门槛）、钟点解析失败不乱改、裸「时间调整」不误判 |
 | `EventMergeTest` | 截断版/完整版合并、改期前缀、全天与带钟点的同日判断、重复命中时补结束时间（两边都有则不猜） |
@@ -914,7 +920,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.53-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.54-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）
@@ -1073,7 +1079,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 345 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 348 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1107,4 +1113,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 345 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 348 条测试和保护机制一条条拆掉。

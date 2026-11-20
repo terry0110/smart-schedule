@@ -61,6 +61,30 @@ class ReviseTest {
         assertEquals(LocalDateTime.of(2026, 11, 20, 16, 0), dt(m.oldStartAt!!))
         assertEquals(LocalDateTime.of(2026, 11, 21, 10, 0), dt(m.newStartAt))
         assertEquals(false, m.meridiemGuessed)
+        assertEquals("原文没写结束时间", 0L, m.newEndAt)
+    }
+
+    @Test
+    fun `改到某个时间段时结束时间一起带出来`() {
+        val m = move("原定明天下午四点的会议改到后天上午十点到十二点")
+        assertEquals(LocalDateTime.of(2026, 11, 21, 10, 0), dt(m.newStartAt))
+        assertEquals(LocalDateTime.of(2026, 11, 21, 12, 0), dt(m.newEndAt))
+    }
+
+    @Test
+    fun `上下午是推的 结束时间跟着新开始走`() {
+        // 新片段只写「3点到5点」，旧时间是下午 → 开始推到 15:00，结束也应是 17:00
+        val m = move("原定明天下午四点的会改到3点到5点")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 15, 0), dt(m.newStartAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 17, 0), dt(m.newEndAt))
+        assertTrue(m.meridiemGuessed)
+    }
+
+    @Test
+    fun `时间有变 也带出结束时间`() {
+        val m = move("时间有变，改到明天下午六点到九点")
+        assertEquals(LocalDateTime.of(2026, 11, 20, 18, 0), dt(m.newStartAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 21, 0), dt(m.newEndAt))
     }
 
     @Test

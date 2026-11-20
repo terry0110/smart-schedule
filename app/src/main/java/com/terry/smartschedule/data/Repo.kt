@@ -439,6 +439,8 @@ object Repo {
      * 改期：只动时间 / 地点和备注，标题、分类一律不碰。
      *
      * @param newLocation 同一句话里还换了地点（"改到 B 栋，下午 4 点"）；null = 地点不变
+     * @param newEndAt    新时间段自带的结束时间（"改到明天六点到九点"）；
+     *                    0 = 原文没写结束时间，沿用原日程的时长
      * @return 更新后的日程；id 不存在返回 null
      */
     suspend fun reschedule(
@@ -446,12 +448,17 @@ object Repo {
         newStartAt: Long,
         newHasTime: Boolean,
         note: String?,
-        newLocation: String? = null
+        newLocation: String? = null,
+        newEndAt: Long = 0L
     ): Event? {
         val old = findById(id) ?: return null
-        // 时长跟着开始时间走：原文给了结束时间就保持同样时长；没给就保持 0，
-        // 冲突检测会按"开始到当天结束"兜底。
-        val duration = (old.endAt - old.startAt).takeIf { it > 0 } ?: 0L
+        // 时长优先级：新原文写了结束时间 → 用新时长；否则沿用原时长（原文没写）。
+        // 冲突检测对 0 的处理是"开始到当天结束"，所以这里不能瞎填一小时。
+        val duration = when {
+            newHasTime && newEndAt > newStartAt -> newEndAt - newStartAt
+            old.hasTime && old.endAt > old.startAt -> old.endAt - old.startAt
+            else -> 0L
+        }
         val next = old.copy(
             startAt = newStartAt,
             hasTime = newHasTime,

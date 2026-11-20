@@ -565,6 +565,8 @@ class MainActivity : AppCompatActivity() {
             .takeIf { it > 0 }
         val newStart = intent.getLongExtra(NotifyAction.EXTRA_REVISE_NEW_START, -1L)
             .takeIf { it > 0 }
+        val newEndAt = intent.getLongExtra(NotifyAction.EXTRA_REVISE_NEW_END, 0L)
+            .takeIf { it > 0 } ?: 0L
         val newHasTime = intent.getBooleanExtra(NotifyAction.EXTRA_REVISE_NEW_HAS_TIME, true)
         val guessed = intent.getBooleanExtra(NotifyAction.EXTRA_REVISE_MERIDIEM, false)
         val newLocation = intent.getStringExtra(NotifyAction.EXTRA_REVISE_NEW_LOCATION)
@@ -577,7 +579,8 @@ class MainActivity : AppCompatActivity() {
             newStartAt = newStart,
             newHasTime = newHasTime,
             meridiemGuessed = guessed,
-            newLocation = newLocation
+            newLocation = newLocation,
+            newEndAt = newEndAt
         )
         // 冷启动时服务可能早被杀了，内存队列是空的；补一条，用户在确认框里点
         // "稍后"之后主界面还能看到这张卡片
@@ -656,7 +659,12 @@ class MainActivity : AppCompatActivity() {
             append("「").append(target.title).append("」\n")
             if (newStart != null) {
                 append(oldLabel).append("  →  ")
-                    .append(TimeFmt.summary(newStart, item.newHasTime, newLocation ?: target.location))
+                    .append(
+                        TimeFmt.rangeSummary(
+                            newStart, item.newEndAt, item.newHasTime,
+                            newLocation ?: target.location
+                        )
+                    )
                 append("\n")
             }
             if (newLocation != null) {
@@ -687,7 +695,8 @@ class MainActivity : AppCompatActivity() {
                 append("【据通知改期】").append(item.text.take(200))
             }
             val updated = Repo.reschedule(
-                target.id, newStart, item.newHasTime, note, item.newLocation
+                target.id, newStart, item.newHasTime, note, item.newLocation,
+                newEndAt = item.newEndAt
             ) ?: run {
                 toast("这条日程已经不在了")
                 forgetRevise(item.key)
