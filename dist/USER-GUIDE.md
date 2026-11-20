@@ -1,6 +1,6 @@
 # 智汇日程 · 使用说明
 
-**版本**：v2.0（versionCode 63） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（release）
+**版本**：v2.0（versionCode 64） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（release）
 
 > v1.34 起应用**不申请网络权限**：所有解析都在手机上完成，这一点可以在系统
 > 「应用信息 → 权限」里直接验证——列表里没有"网络"这一项。

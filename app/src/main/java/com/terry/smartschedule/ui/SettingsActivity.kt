@@ -395,24 +395,50 @@ class SettingsActivity : AppCompatActivity() {
     /**
      * 打开系统的「通知使用权」页面。
      *
-     * Android 11+ 可以直接跳到本应用的**详情页**，省得用户在二三十个应用里翻找；
-     * 老版本和不支持该 action 的 ROM 退回到列表页。
+     * 以**列表页**为主：Android 5.0 起各 ROM 都有，兼容性最好。
+     * Android 11+ 的详情页（DETAIL_SETTINGS）在部分国产 ROM 上会"启动成功但立刻退出"，
+     * 表现为点了没反应，所以只在列表页打不开时才尝试它。
      */
     private fun openListenerSettings() {
+        val list = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        if (runCatching { startActivity(list) }.isSuccess) {
+            confirmSettingsOpened()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
                 .putExtra(
                     Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
                     ComponentName(this, NotificationCaptureService::class.java)
                 )
-            if (runCatching { startActivity(detail) }.isSuccess) return
+            if (runCatching { startActivity(detail) }.isSuccess) {
+                confirmSettingsOpened()
+                return
+            }
         }
-        val ok = runCatching {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }.isSuccess
-        if (!ok) {
-            toast("打不开系统设置，请手动到 设置 → 通知 → 通知使用权 里授权")
-        }
+        showManualListenerDialog()
+    }
+
+    /**
+     * 有些 ROM 的 startActivity 不抛异常，但页面根本不出现。
+     * 1.2 秒后如果本页仍持有窗口焦点，说明没跳出去，给一个能看见的手动说明，
+     * 而不是让用户觉得按钮坏了。
+     */
+    private fun confirmSettingsOpened() {
+        ui.postDelayed({
+            if (!isFinishing && !isDestroyed && hasWindowFocus()) showManualListenerDialog()
+        }, 1200)
+    }
+
+    private fun showManualListenerDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("请手动打开通知使用权")
+            .setMessage(
+                "系统没有响应跳转。请手动进入：\n\n" +
+                    "设置 → 通知 → 通知使用权 → 找到「智汇日程」→ 打开「允许通知使用权」"
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     /**

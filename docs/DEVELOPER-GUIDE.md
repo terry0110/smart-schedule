@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v2.0（versionCode 63）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
+> 当前版本：**v2.0（versionCode 64）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,7 +156,7 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 63        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionCode = 64        // 每次出包 +1，不能回退（系统拒绝降级安装）
 versionName = "2.0"
 ```
 
@@ -609,8 +609,8 @@ title 原文（差一个句号/空格/表情就漏）。**任何写 events 的�
 
 所以 UI 不能把「重连成功」当成按钮的必然结果：
 
-- 点一次后只等约 2 秒；没连上就弹说明，并提供「去系统设置」按钮
-- 真正可靠的办法是到系统「通知使用权」详情页，把本应用的开关**关掉、等一秒、再打开**
+- 点一次后只等约 1.6 秒；没连上就弹说明，并提供「去系统设置」按钮
+- 真正可靠的办法是到系统「通知使用权」页面，找到「智汇日程」，把开关**关掉、等一秒、再打开**
   —— 系统会重新绑定并回调 `onListenerConnected`
 - 从系统设置返回后，`startWatch()` 观察 12 秒，给慢机型留绑定时间
 
@@ -623,6 +623,11 @@ v1.61 补的两件事：
 - 服务在 `onListenerConnected` / `onListenerDisconnected` / `onDestroy` 广播
   `NotifyAction.ACTION_LISTENER_STATE`；设置页和主界面收到后立刻刷新状态，
   设置页还会停掉轮询并提示"已连接"，不必等下一次定时刷新
+
+v2.0 修正：详情页在部分国产 ROM 上会"启动成功但立刻退出"，用户看到的是点了没反应。
+现在 `openListenerSettings()` 优先打开 `ACTION_NOTIFICATION_LISTENER_SETTINGS`
+列表页（兼容性最好），详情页只在列表页打不开时兜底；调用后 1.2 秒检查
+`hasWindowFocus()`，本页仍持有焦点说明根本没跳出去，直接弹出手动操作说明。
 
 ---
 
