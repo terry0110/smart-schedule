@@ -1,6 +1,6 @@
 # 智汇日程 · 使用说明
 
-**版本**：v1.57（versionCode 57） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（debug）
+**版本**：v1.58（versionCode 58） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（debug）
 
 > v1.34 起应用**不申请网络权限**：所有解析都在手机上完成，这一点可以在系统
 > 「应用信息 → 权限」里直接验证——列表里没有"网络"这一项。
@@ -23,7 +23,7 @@ Android 不允许"签名不一致的升级"，系统会拒绝覆盖安装 ——
 ## 二、安装
 
 1. 从 [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) 下载最新的
-   `smart-schedule-v1.57-debug.apk`，传到手机（数据线 / 微信 / qq 都行）
+   `smart-schedule-v1.58-debug.apk`，传到手机（数据线 / 微信 / qq 都行）
 2. 点开安装。系统会提示"未知来源应用"，允许一次即可
 3. 如果提示"安装失败 / 签名冲突"，说明旧版还在 —— 先卸载再装
 
@@ -338,6 +338,9 @@ Android 不允许"签名不一致的升级"，系统会拒绝覆盖安装 ——
 | 大模型 API Key | 本机（密文） | Android Keystore AES-GCM 加密，密钥不可导出 |
 
 - 锁屏只显示"智汇日程"，不显示日程标题
+- 设置 → 隐私与数据 → **「日程里保存解析原文」**（默认开启）：关闭后，
+  新识别/抓取的日程不再保存原文，编辑面板也不再显示「原文」；
+  已有日程里的原文不会自动删除
 - **退到后台后，最近任务缩略图是空白**，回前台即可正常截图
 - 这是 **release 包**（`debuggable=false`、`adb run-as` 读不到私有目录、
   调试器无法附加），比 debug 包安全

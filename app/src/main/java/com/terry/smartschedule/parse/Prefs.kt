@@ -54,6 +54,17 @@ object Prefs {
         }
 
     /**
+     * 日程里是否保存识别/抓取到的原文。
+     * 默认开：原文用于回溯"这条是怎么来的"，也是编辑面板里那行「原文」的来源。
+     * 关掉只影响**之后**新建/改期的日程，已有日程里的原文不会自动删除。
+     */
+    var saveEventNote: Boolean
+        get() = sp.getBoolean("save_event_note", true)
+        set(v) {
+            sp.edit().putBoolean("save_event_note", v).apply()
+        }
+
+    /**
      * 诊断模式：把**每一个**通知回调都记进日志，包括被判为"不像日程"而放过的那些。
      *
      * 默认关。关着的时候，日志里只会出现"像日程却没能建出来"的记录 ——

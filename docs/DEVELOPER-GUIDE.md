@@ -4,7 +4,7 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v1.57（versionCode 57）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
+> 当前版本：**v1.58（versionCode 58）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
 > 最后更新：2026-11-20
 
 ---
@@ -156,8 +156,8 @@ release 的核心收益（`debuggable=false` + 私有签名）不依赖混淆，
 只改 `app/build.gradle.kts` 里两行：
 
 ```kotlin
-versionCode = 57        // 每次出包 +1，不能回退（系统拒绝降级安装）
-versionName = "1.57"
+versionCode = 58        // 每次出包 +1，不能回退（系统拒绝降级安装）
+versionName = "1.58"
 ```
 
 `pack.sh` 会自己从这两行读出版本号来命名文件、追加 `dist/HISTORY.md`。
@@ -196,12 +196,12 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── CategoryRules.kt         73 行    本地关键词分类器（纯函数，CategoryRulesTest 守着）
 │   ├── ParseService.kt          28 行    纯本地解析调度 + 阈值常量（曾经的云端兜底已删）
 │   ├── Revise.kt               517 行    ★ 认「改期/取消/换地点/时间有变」+ 挑改哪一条（ReviseTest 守着）
-│   └── Prefs.kt                159 行    全部设置项（SharedPreferences）
+│   └── Prefs.kt                170 行    全部设置项（SharedPreferences）
 ├── sync/
 │   ├── CalendarSync.kt         226 行    系统日历读写：找/建本地日历、增改删事件
 │   └── CalTime.kt               23 行    全天日程 → UTC 零点换算（CalTimeTest 守着）
 ├── notify/
-│   ├── NotificationCaptureService.kt 874 行  ★ 通知监听主链路
+│   ├── NotificationCaptureService.kt 882 行  ★ 通知监听主链路
 │   ├── TextFilter.kt           182 行    文件/资费/营销/闲聊判别（纯函数）
 │   ├── TextNorm.kt             102 行    消息去重用的归一化（纯函数，DedupeTest 守着）
 │   ├── CapturePolicy.kt         29 行    "解析结果该不该建"的最后一道门
@@ -225,7 +225,7 @@ app/src/main/java/com/terry/smartschedule/
 ├── ui/
 │   ├── MainActivity.kt        1287 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      280 行    归档日志：恢复 / 删除 / 多选批量删除 / 删除全部
-│   ├── SettingsActivity.kt     599 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
+│   ├── SettingsActivity.kt     656 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
 │   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
@@ -854,7 +854,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 为什么"跟随设置"做成勾选框而不是第五个按钮：五个按钮挤一行会把文字截断。
 
-### 8.4 设置页（`SettingsActivity`，598 行）
+### 8.4 设置页（`SettingsActivity`，656 行）
 
 分区顺序：通知使用权 → 自动记录 → 系统日历同步 → 默认通知方式 → 提醒提前量 →
 保活 → 诊断 → 危险操作（清空数据）。
@@ -881,6 +881,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `allowBackup=false` + `dataExtractionRules` + `fullBackupContent=false` | Manifest | 默认 true 时 `adb backup` / 云备份能把数据库和加密 Key 整个导走 |
 | `usesCleartextTraffic=false` + `networkSecurityConfig` | Manifest + `res/xml/` | 只放行本机回环 |
 | 抓取日志不存正文 | `Prefs.logRawText` 默认 false | 只在排障时临时打开；打开后截断 80 字 |
+| 日程原文可关 | `Prefs.saveEventNote` 默认 true | 隐私与数据里独立开关；关闭后新日程不再写 `Event.note`（改期/换地点/取消附带的原文也跳过），已有数据不自动删 |
 | 日志 24h TTL + 500 行上限 | `notify/CaptureLog.kt` | 流水是排障工具不是存档 |
 | 锁屏脱敏版通知 | `Notifications.lockScreenSafe()` | 日程标题常是隐私（"复诊""面试""交房租"） |
 | 后台禁止截屏 | `util/ScreenGuard.kt` + `App.onCreate` | 切后台时 `FLAG_SECURE` |
@@ -944,7 +945,7 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 ```bash
 export MSYS_NO_PATHCONV=1
 /d/leidian/LDPlayer9/adb.exe devices
-/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.57-debug.apk
+/d/leidian/LDPlayer9/adb.exe install -r dist/smart-schedule-v1.58-debug.apk
 ```
 
 ### 11.2 装机后必须做的授权（每次重装都要重做）

@@ -107,6 +107,8 @@
     <string name="settings_section_privacy">隐私与数据</string>
     <string name="settings_log_raw">抓取日志里保存通知原文</string>
     <string name="settings_log_raw_desc">默认关闭。关闭时日志只记「哪个应用、什么结果、为什么」，不记通知内容。</string>
+    <string name="settings_save_note">日程里保存解析原文</string>
+    <string name="settings_save_note_desc">默认开启。关闭后，新识别/抓取的日程不再保存原文；已有日程里的原文不受影响。</string>
     <string name="settings_no_network">本应用不申请网络权限，所有解析都在手机上完成。</string>
     <string name="settings_privacy_note">日程、抓取日志、设置全部只存在本机，不参与系统云备份，也不会上传到任何服务器——本应用连网络权限都没有。唯一会写出去的，是你自己打开的「系统日历同步」，且只写进本机日历，不进任何账号。</string>
     <string name="settings_wipe">删除所有本地数据</string>

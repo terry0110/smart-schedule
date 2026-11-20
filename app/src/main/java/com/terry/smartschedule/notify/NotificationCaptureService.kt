@@ -350,7 +350,9 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
-        val note = buildString {
+        val note = if (!Prefs.saveEventNote) {
+            target.note
+        } else buildString {
             append(target.note.orEmpty())
             if (isNotEmpty()) append("\n\n")
             append("【据通知改期】").append(text)
@@ -403,7 +405,9 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
-        val note = buildString {
+        val note = if (!Prefs.saveEventNote) {
+            target.note
+        } else buildString {
             append(target.note.orEmpty())
             if (isNotEmpty()) append("\n\n")
             append("【据通知改地点】").append(text)
@@ -435,7 +439,10 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
-        Repo.revoke(target.id, "据通知：${text.take(80)}")
+        Repo.revoke(
+            target.id,
+            if (Prefs.saveEventNote) "据通知：${text.take(80)}" else "据通知取消"
+        )
         broadcastChanged()
         CaptureLog.record(
             app, text, CaptureRecord.OUT_PENDING,
@@ -611,8 +618,9 @@ class NotificationCaptureService : NotificationListenerService() {
             startAt = r.startAt,
             hasTime = r.hasTime,
             location = r.location,
-            // 原文只留 500 字：够用户核对来源，又不至于把整段聊天记录写进库
-            note = text.take(500),
+            // 原文只留 500 字：够用户核对来源，又不至于把整段聊天记录写进库。
+            // 设置里关掉「日程里保存解析原文」后，新日程不再保存 note。
+            note = if (Prefs.saveEventNote) text.take(500) else null,
             source = source,
             remindMinutes = Prefs.defaultRemind,
             pending = unsure,

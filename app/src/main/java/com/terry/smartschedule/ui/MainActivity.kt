@@ -696,7 +696,9 @@ class MainActivity : AppCompatActivity() {
     private fun applyRevise(target: Event, item: ReviseInbox.Item) {
         val newStart = item.newStartAt ?: return
         lifecycleScope.launch {
-            val note = buildString {
+            val note = if (!Prefs.saveEventNote) {
+                target.note
+            } else buildString {
                 append(target.note.orEmpty())
                 if (isNotEmpty()) append("\n\n")
                 append("【据通知改期】").append(item.text.take(200))
@@ -723,7 +725,9 @@ class MainActivity : AppCompatActivity() {
     private fun applyRelocate(target: Event, item: ReviseInbox.Item) {
         val newLocation = item.newLocation ?: return
         lifecycleScope.launch {
-            val note = buildString {
+            val note = if (!Prefs.saveEventNote) {
+                target.note
+            } else buildString {
                 append(target.note.orEmpty())
                 if (isNotEmpty()) append("\n\n")
                 append("【据通知改地点】").append(item.text.take(200))
@@ -1031,7 +1035,11 @@ class MainActivity : AppCompatActivity() {
             hasTime = hasTime,
             endAt = if (hasTime && duration > 0) startAt + duration else 0L,
             location = location,
-            note = lastRaw.takeIf { it.isNotBlank() }?.take(500),
+            note = if (Prefs.saveEventNote) {
+                lastRaw.takeIf { it.isNotBlank() }?.take(500)
+            } else {
+                null
+            },
             source = Event.SRC_MANUAL,
             remindMinutes = Prefs.defaultRemind,
             remindStyle = currentEventStyle(vb),

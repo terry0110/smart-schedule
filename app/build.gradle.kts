@@ -24,8 +24,8 @@ android {
         applicationId = "com.terry.smartschedule"
         minSdk = 26
         targetSdk = 35
-        versionCode = 57
-        versionName = "1.57"
+        versionCode = 58
+        versionName = "1.58"
     }
 
     signingConfigs {

@@ -96,6 +96,7 @@ class SettingsActivity : AppCompatActivity() {
             updateStyleDesc(v)
         }
         b.swLogRaw.isChecked = Prefs.logRawText
+        b.swSaveNote.isChecked = Prefs.saveEventNote
         b.swVerbose.isChecked = Prefs.captureVerbose
 
         // 开关立刻生效，不用等"保存"——这些开关用户期待马上起作用
@@ -150,6 +151,10 @@ class SettingsActivity : AppCompatActivity() {
 
         b.swLogRaw.setOnCheckedChangeListener { _, checked ->
             Prefs.logRawText = checked
+        }
+
+        b.swSaveNote.setOnCheckedChangeListener { _, checked ->
+            Prefs.saveEventNote = checked
         }
 
         b.swVerbose.setOnCheckedChangeListener { _, checked ->
