@@ -33,6 +33,7 @@
 
 | 版本 | 改了什么 |
 |---|---|
+| 2.1 | 归档恢复与批量恢复修复、列表列头、结束时间选择框、完成统一归档 |
 | 2.0 | 总开关与状态文案改为「读取通知」；授权入口改为优先打开通知使用权列表页 |
 | 1.62 | 应用名统一为「智汇日程」；发布只上传 release 变体，debug 仅本机调试 |
 | 1.61 | 重连状态实时广播刷新；修正通知使用权详情页的 ComponentName 参数 |
@@ -130,3 +131,4 @@
 | 1.62 | 62 | debug | 2026-11-20 22:15 | smart-schedule-v1.62-debug.apk | 4.8M |
 | 1.62 | 62 | release | 2026-11-20 22:23 | smart-schedule-v1.62-release.apk | 4.8M |
 | 2.0 | 64 | release | 2026-11-20 22:58 | smart-schedule-v2.0-release.apk | 4.8M |
+| 2.1 | 65 | release | 2026-11-21 01:10 | smart-schedule-v2.1-release.apk | 4.8M |

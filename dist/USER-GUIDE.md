@@ -1,6 +1,6 @@
 # 智汇日程 · 使用说明
 
-**版本**：v2.0（versionCode 64） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（release）
+**版本**：v2.1（versionCode 65） · **包**：`com.terry.smartschedule` · **体积**：4.8 MB（release）
 
 > v1.34 起应用**不申请网络权限**：所有解析都在手机上完成，这一点可以在系统
 > 「应用信息 → 权限」里直接验证——列表里没有"网络"这一项。
@@ -24,7 +24,7 @@ Android 不允许"签名不一致的升级"，系统会拒绝覆盖安装 ——
 ## 二、安装
 
 1. 从 [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) 下载最新的
-   `smart-schedule-v2.0-release.apk`，传到手机（数据线 / 微信 / qq 都行）
+   `smart-schedule-v2.1-release.apk`，传到手机（数据线 / 微信 / qq 都行）
 2. 点开安装。系统会提示"未知来源应用"，允许一次即可
 3. 如果提示"安装失败 / 签名冲突"，说明手机上还装着旧 debug 包 —— 只能卸载再装
 
