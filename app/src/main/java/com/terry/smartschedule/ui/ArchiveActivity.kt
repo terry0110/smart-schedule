@@ -173,6 +173,12 @@ class ArchiveActivity : AppCompatActivity() {
         if (ids.isEmpty()) return
         lifecycleScope.launch {
             val events = Repo.archived().filter { it.id in ids }
+            // 选中项可能刚被别处删掉/恢复了：没有可恢复的就直接退出，别提示"恢复了 0 条"
+            if (events.isEmpty()) {
+                exitSelection()
+                reload()
+                return@launch
+            }
             restoreEvents(events)
             exitSelection()
             reload()

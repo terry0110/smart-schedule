@@ -224,11 +224,11 @@ app/src/main/java/com/terry/smartschedule/
 │   └── NotifyAction.kt          65 行    action / extras 常量（含 LISTENER_STATE）
 ├── ui/
 │   ├── MainActivity.kt        1553 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
-│   ├── ArchiveActivity.kt      339 行    归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部
+│   ├── ArchiveActivity.kt      345 行    归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部
 │   ├── SettingsActivity.kt     724 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
 │   ├── CaptureLogActivity.kt    85 行    抓取流水查看页
-│   ├── EventAdapter.kt         255 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
+│   ├── EventAdapter.kt         257 行    列表 RecyclerView 适配器（含检索高亮、结束时间小字）
 │   └── SearchHighlight.kt       67 行    命中标蓝加粗 + 原文命中片段
 └── util/
     ├── TimeFmt.kt               100 行    时间格式化（"明天 15:00"、区间、结束时间小字）
@@ -842,7 +842,8 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 - 列表用 `RecyclerView` + `EventAdapter`，行数据是 `Row`（标题 + 时间 + 状态 + 是否选中）
 - 行内两个框（v1.44）：**最左 `cbSelectLeft` 常驻多选**，点它进入多选；
   **最右 `cbArchive` 归档**，点一下从主列表消失、进归档日志。旧的 `cbDone` / 右侧
-  `cbSelect` 已隐藏，保留 id 只为兼容旧 binding
+  `cbSelect` 已隐藏，保留 id 只为兼容旧 binding；进入多选时 `cbArchive` 置为
+  `INVISIBLE`（保留占位避免文字跳动），防止勾选时误归档
 - 列表上方 `listHintBar`（v2.0 补）：用「多选 / 已完成」两个列头解释左右两个框，
   没有日程时隐藏
 - 长按进入多选模式 → `enterSelection()` / `toggleSelectAll()` / `confirmDeleteSelected()`

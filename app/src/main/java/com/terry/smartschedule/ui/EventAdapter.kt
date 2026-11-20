@@ -206,7 +206,9 @@ class EventAdapter(
             }
 
             // 右侧：归档。点一下这条就从主列表消失，进「归档日志」。
+            // 多选时隐藏（保留占位，避免标题宽度跳动），防止勾选过程中误归档。
             b.cbArchive.isChecked = false
+            b.cbArchive.visibility = if (selectionMode) View.INVISIBLE else View.VISIBLE
             b.cbArchive.setOnClickListener { onToggle(event) }
 
             // 背景优先级：选中 > 待确认 > 普通。
