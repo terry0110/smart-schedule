@@ -503,6 +503,33 @@
             android:visibility="gone"
             tools:text="找到 3 条" />
 
+        <!-- 列头：说明卡片左右两个常驻勾选框的含义；没有日程时隐藏 -->
+        <LinearLayout
+            android:id="@+id/listHintBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/list_hint_select"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/list_hint_done"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
         <!-- ============ 列表 ============ -->
         <FrameLayout
             android:layout_width="match_parent"

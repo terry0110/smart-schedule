@@ -119,6 +119,9 @@
     <!-- 列表行内的两个复选框：读屏要的是"这一行的动作"，不是全局按钮名 -->
     <string name="row_select">选择此日程</string>
     <string name="row_archive">归档此日程</string>
+    <!-- 列表列头：解释卡片左右两个常驻勾选框 -->
+    <string name="list_hint_select">多选</string>
+    <string name="list_hint_done">已完成</string>
 
     <!-- 捕获日志页 -->
     <string name="capture_log_title">通知处理记录</string>

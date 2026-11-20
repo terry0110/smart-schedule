@@ -223,7 +223,7 @@ app/src/main/java/com/terry/smartschedule/
 │   ├── BootReceiver.kt          37 行    开机 / 应用更新后重排提醒 + 补发
 │   └── NotifyAction.kt          65 行    action / extras 常量（含 LISTENER_STATE）
 ├── ui/
-│   ├── MainActivity.kt        1482 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
+│   ├── MainActivity.kt        1483 行   ★ 列表、检索、输入框、识别、编辑面板、归档/多选、改期确认
 │   ├── ArchiveActivity.kt      339 行    归档日志：恢复 / 删除 / 多选批量恢复 / 批量删除 / 删除全部
 │   ├── SettingsActivity.kt     724 行    ★ 所有开关、授权引导、日历同步开关、清理重复、清库
 │   ├── ReminderActivity.kt     183 行    全屏提醒页（锁屏显示 + 亮屏）
@@ -836,13 +836,15 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 
 ### 8.2 主界面结构
 
-`activity_main.xml` + `MainActivity.kt`（1287 行，最大的文件，改之前先读完整）：
+`activity_main.xml` + `MainActivity.kt`（1483 行，最大的文件，改之前先读完整）：
 
 - 顶部输入框 + "识别"按钮 → `doParse()` → `DateTimeParser` → `showPreview()` 弹出编辑面板
 - 列表用 `RecyclerView` + `EventAdapter`，行数据是 `Row`（标题 + 时间 + 状态 + 是否选中）
 - 行内两个框（v1.44）：**最左 `cbSelectLeft` 常驻多选**，点它进入多选；
   **最右 `cbArchive` 归档**，点一下从主列表消失、进归档日志。旧的 `cbDone` / 右侧
   `cbSelect` 已隐藏，保留 id 只为兼容旧 binding
+- 列表上方 `listHintBar`（v2.0 补）：用「多选 / 已完成」两个列头解释左右两个框，
+  没有日程时隐藏
 - 长按进入多选模式 → `enterSelection()` / `toggleSelectAll()` / `confirmDeleteSelected()`
 - 主列表数据源是 `Repo.active()`，不再包含归档条目
 - 编辑面板是 `BottomSheetDialog` + `sheet_preview.xml`（`createSheet()` 构建）

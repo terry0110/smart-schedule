@@ -1204,6 +1204,7 @@ class MainActivity : AppCompatActivity() {
             lastPendingCount = all.count { it.pending }
             adapter.submit(buildRows(list), tokens)
             b.emptyView.isVisible = list.isEmpty()
+            b.listHintBar.isVisible = list.isNotEmpty()
             applyEmptyText(all, list, tokens)
             updatePendingBanner()
 
