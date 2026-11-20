@@ -105,6 +105,9 @@ adb shell "sqlite3 /data/data/com.terry.smartschedule/databases/schedule.db \
   按钮文字显示异常必须截图确认。
 - 删测试类之后 `app/build/test-results/` 里的旧 XML 不会自动清，
   汇总条数会把已删的测试算进去 —— 先删目录再 `--rerun-tasks`。
+- 「通知使用权」跳转**不要用 Android 11+ 详情页做主路径**：部分国产 ROM 会
+  "启动成功但立刻退出"，看起来像点击无反应。`openListenerSettings()` 现在优先
+  `ACTION_NOTIFICATION_LISTENER_SETTINGS` 列表页，并用 1.2 秒焦点检测兜底弹手动说明。
 
 ## 交付风格
 
