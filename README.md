@@ -2,7 +2,7 @@
 
 把通知栏里的**群公告、作业 ddl、培训通知**自动变成日程；也能手动粘一段文字让应用识别。
 
-- `dist/smart-schedule-v1.48-debug.apk` —— 直接装手机就行（debug 签名）
+- [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) —— 下载最新 debug APK（仓库不提交 APK）
 - 完整 Android 工程，Android Studio 打开即可编译
 
 **给用的人看**：`dist/USER-GUIDE.md`（安装、授权、日常操作、排查）。

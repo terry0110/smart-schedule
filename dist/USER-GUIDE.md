@@ -22,7 +22,8 @@ Android 不允许"签名不一致的升级"，系统会拒绝覆盖安装 ——
 
 ## 二、安装
 
-1. 把 `smart-schedule-v1.34-debug.apk` 传到手机（数据线 / 微信 / qq 都行）
+1. 从 [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) 下载最新的
+   `smart-schedule-v1.48-debug.apk`，传到手机（数据线 / 微信 / qq 都行）
 2. 点开安装。系统会提示"未知来源应用"，允许一次即可
 3. 如果提示"安装失败 / 签名冲突"，说明旧版还在 —— 先卸载再装
 
