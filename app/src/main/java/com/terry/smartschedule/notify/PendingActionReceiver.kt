@@ -69,22 +69,16 @@ class PendingActionReceiver : BroadcastReceiver() {
     }
 
     /**
-     * 「知道了」：标记完成。
+     * 「知道了」：完成即归档。
      *
-     * 不删记录 —— 用户说的是"这件事我知道了"，不是"当它没发生"。
-     * 列表里保留一条打勾的，比凭空消失更符合直觉（也是他事后核对"我到底办了没"的依据）。
+     * 和主列表右侧「已完成」走同一条路：从主列表移除、进「归档日志」，
+     * 需要时可以在那边恢复成未完成。不再写 done=true。
      */
     private suspend fun markDone(c: Context, id: Long) {
         val e = Repo.findById(id) ?: return
-        if (e.done) {
-            Notifications.clearRemind(c, id)
-            return
-        }
-        Repo.update(e.copy(done = true))
-        // 完成了就不该再响
-        ReminderScheduler.cancel(c, id)
+        Repo.archive(id)
         Notifications.clearRemind(c, id)
-        CaptureLog.record("通知栏", "", CaptureRecord.OUT_SKIPPED, "已在通知栏标记完成：${e.title}")
+        CaptureLog.record("通知栏", "", CaptureRecord.OUT_SKIPPED, "已在通知栏完成并归档：${e.title}")
         broadcastChanged(c)
     }
 

@@ -1353,9 +1353,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 右侧框：归档。
+     * 右侧框：完成 / 归档。
      *
-     * 不是"标记完成" —— 点一下这条就从主列表消失，进「归档日志」，
+     * 「已完成」= 归档：点一下这条从主列表消失，进「归档日志」，
      * 在那边可以恢复或彻底删除。归档会停掉闹钟和通知栏里的提醒/待确认。
      */
     private fun archiveEvent(event: Event) {
@@ -1365,21 +1365,6 @@ class MainActivity : AppCompatActivity() {
             Notifications.clearRemind(this@MainActivity, event.id)
             Notifications.clearPending(this@MainActivity, event.id)
             toast("已归档：${event.title}")
-            reload()
-        }
-    }
-
-    private fun toggleDone(event: Event) {
-        val nowDone = !event.done
-        lifecycleScope.launch {
-            Repo.setDone(event.id, nowDone)
-            if (nowDone) {
-                ReminderScheduler.cancel(this@MainActivity, event.id)
-                // 手动勾完成，通知栏里那条到点提醒也该消失
-                Notifications.clearRemind(this@MainActivity, event.id)
-            } else {
-                ReminderScheduler.schedule(this@MainActivity, event.copy(done = false))
-            }
             reload()
         }
     }

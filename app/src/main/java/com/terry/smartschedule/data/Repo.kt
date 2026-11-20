@@ -162,14 +162,6 @@ object Repo {
         Unit
     }
 
-    suspend fun setDone(id: Long, done: Boolean) = withContext(Dispatchers.IO) {
-        val cv = android.content.ContentValues().apply {
-            put(EventDb.C_DONE, if (done) 1 else 0)
-        }
-        helper.writableDatabase.update(EventDb.TABLE, cv, "${EventDb.C_ID}=?", arrayOf(id.toString()))
-        Unit
-    }
-
     /** 确认一条待确认日程：转正，并把提醒排上 */
     suspend fun confirmPending(id: Long) = withContext(Dispatchers.IO) {
         val cv = android.content.ContentValues().apply {

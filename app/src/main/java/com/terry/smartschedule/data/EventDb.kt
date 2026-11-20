@@ -112,6 +112,12 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
         if (oldVersion < 10) {
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN end_at INTEGER NOT NULL DEFAULT 0")
         }
+        // v10 -> v11：完成 = 归档。
+        // v9 迁移只搬了升级前的老 done；v9 之后提醒页/通知栏的"知道了"仍会写 done=1。
+        // 现在完成统一走归档，存量打勾数据一并搬进归档日志，主列表不再留半完成态。
+        if (oldVersion < 11) {
+            db.execSQL("UPDATE $TABLE SET archived = 1, done = 0 WHERE done = 1")
+        }
     }
 
     /** 给老数据补分类。用的是纯规则分类器（[CategoryRules]），不需要网络 */
@@ -163,7 +169,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
 
     companion object {
         const val DB_NAME = "schedule.db"
-        const val DB_VERSION = 10
+        const val DB_VERSION = 11
         const val TABLE = "events"
         const val C_TABLE = "capture_log"
         const val S_TABLE = "msg_seen"

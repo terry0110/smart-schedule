@@ -125,6 +125,8 @@ class ReminderActivity : AppCompatActivity() {
     }
 
     /**
+     * 完成 = 归档：从主列表移到「归档日志」，需要时可以在归档页恢复。
+     *
      * 注意顺序：**先干活，最后才 finish()**。
      *
      * 这里踩过一次：先 `finish()` 再 `lifecycleScope.launch`，Activity 销毁时
@@ -140,8 +142,7 @@ class ReminderActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             runCatching {
-                Repo.findById(id)?.let { Repo.update(it.copy(done = true)) }
-                ReminderScheduler.cancel(this@ReminderActivity, id)
+                Repo.archive(id)
                 Notifications.clearRemind(this@ReminderActivity, id)
             }
             finish()
