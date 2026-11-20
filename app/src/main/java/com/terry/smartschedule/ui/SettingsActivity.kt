@@ -13,12 +13,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.terry.smartschedule.R
+import com.terry.smartschedule.data.EventMerge
 import com.terry.smartschedule.data.Repo
 import com.terry.smartschedule.databinding.ActivitySettingsBinding
 import com.terry.smartschedule.notify.CaptureLog
 import com.terry.smartschedule.notify.ListenerStatus
 import com.terry.smartschedule.notify.NotificationCaptureService
 import com.terry.smartschedule.notify.Notifications
+import com.terry.smartschedule.notify.NotifyAction
 import com.terry.smartschedule.notify.RebindResult
 import com.terry.smartschedule.notify.ReminderScheduler
 import com.terry.smartschedule.notify.SeenStore
@@ -155,6 +157,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         b.btnWipe.setOnClickListener { confirmWipe() }
+        b.btnDedupe.setOnClickListener { confirmDedupe() }
 
         b.btnListener.setOnClickListener {
             when (ServiceHealth.status(this)) {
@@ -493,6 +496,58 @@ class SettingsActivity : AppCompatActivity() {
         }.isSuccess
         if (!ok) {
             toast("打不开授权页，请手动到 设置 → 应用 → 特殊权限 → 闹钟和提醒 里允许")
+        }
+    }
+
+    /**
+     * 清理重复日程。
+     *
+     * 只处理"同一条通知的不同版本"：宽松同题、地点不冲突、创建时间相差 ≤12 小时、
+     * 日期相差 ≤3 天。先列出来给用户看，确认后才删；每组保留最完整的一条
+     * （优先带具体时间、非待确认、最新创建）。
+     */
+    private fun confirmDedupe() {
+        lifecycleScope.launch {
+            val groups = runCatching { Repo.duplicateGroups() }.getOrDefault(emptyList())
+            if (groups.isEmpty()) {
+                toast("没有发现重复日程")
+                return@launch
+            }
+            val dropCount = groups.sumOf { it.drop.size }
+            // 只显示保留项会让用户看不出被删的是哪一天；跨天组最容易被误当成
+            // "同一条的旧版/新版"，所以每条 drop 也列出日期，并单独提醒。
+            val detail = buildString {
+                groups.forEach { g ->
+                    append("· 保留「").append(g.keep.title).append("」")
+                    append("（").append(TimeFmt.summary(g.keep.startAt, g.keep.hasTime, null)).append("）\n")
+                    g.drop.forEach { d ->
+                        append("  删除「").append(d.title).append("」")
+                        append("（").append(TimeFmt.summary(d.startAt, d.hasTime, null)).append("）\n")
+                    }
+                    if (g.drop.any { !EventMerge.sameDay(g.keep.startAt, it.startAt) }) {
+                        append("  ⚠ 这组跨了不同日期，请确认不是两场活动\n")
+                    }
+                }
+            }
+            MaterialAlertDialogBuilder(this@SettingsActivity)
+                .setTitle("清理 $dropCount 条重复日程？")
+                .setMessage(
+                    "发现 ${groups.size} 组相似日程。每组保留最完整的一条，其余删除。\n\n" +
+                        detail + "\n删除后无法恢复，系统日历里的对应条目也会一起删。"
+                )
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("清理") { _, _ ->
+                    lifecycleScope.launch {
+                        // 提醒/通知由 Repo 按"真正删掉的那几条"撤，不能拿这里的旧快照撤：
+                        // 弹窗期间被改期的条目会被重新判断为不相似，留在库里但闹钟已经被撤掉。
+                        val n = Repo.mergeDuplicateGroups(groups)
+                        sendBroadcast(
+                            Intent(NotifyAction.ACTION_DATA_CHANGED).setPackage(packageName)
+                        )
+                        toast("已清理 $n 条重复日程")
+                    }
+                }
+                .show()
         }
     }
 

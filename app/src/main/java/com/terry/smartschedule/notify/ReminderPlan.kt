@@ -44,6 +44,7 @@ object ReminderPlan {
      *            否则这个函数没法测。
      */
     fun plan(event: Event, now: Long): Plan {
+        if (event.archived) return Plan.Skip("已归档")
         if (event.done) return Plan.Skip("已完成")
         // 后来的通知说这条取消了：再响一次是纯噪音，就算用户还没去删它
         if (event.revoked) return Plan.Skip("据通知已取消")

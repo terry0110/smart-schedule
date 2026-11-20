@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.terry.smartschedule.data.Event
+import com.terry.smartschedule.data.EventConflict
 import com.terry.smartschedule.data.Repo
 import com.terry.smartschedule.parse.CategoryRules
 import com.terry.smartschedule.parse.DateTimeParser
@@ -307,7 +308,7 @@ class NotificationCaptureService : NotificationListenerService() {
      * 用户能在处理日志里看到"我认出这是改期，但没敢动" —— 比默默建一条新日程诚实。
      */
     private suspend fun applyMove(app: String, text: String, v: Revise.Verdict.Move) {
-        val target = Repo.findReviseTarget(v.oldStartAt, text)
+        val target = Repo.findReviseTarget(v.oldStartAt, text, byContent = v.fromTimeChanged)
         if (target == null) {
             val asked = askReviseUser(text, v)
             CaptureLog.record(
@@ -335,7 +336,11 @@ class NotificationCaptureService : NotificationListenerService() {
         val updated = Repo.reschedule(
             target.id, v.newStartAt, v.newHasTime, note, v.newLocation
         ) ?: return
-        // 改期后必须重排：原来的闹钟还挂在旧时间上，不重排就会在原定时刻响一次
+        // 旧时间和旧地点都作废了。先撤掉还挂在通知栏里的那条提醒（否则改到更晚时，
+        // 它会带着旧时间/旧地点一直挂到新时间才被覆盖），再撤旧闹钟、按新时间重排。
+        // 和 MainActivity 手动确认改期的处理保持一致。
+        Notifications.clearRemind(this, target.id)
+        ReminderScheduler.cancel(this, target.id)
         ReminderScheduler.schedule(this, updated)
         broadcastChanged()
 
@@ -569,13 +574,83 @@ class NotificationCaptureService : NotificationListenerService() {
             ).key
         )
 
-        val id = Repo.insert(event)
-        val saved = event.copy(id = id)
+        // 同一条通知的另一版：截断版 → 完整版、多了「现时间有变」前缀…
+        // 精确判重比的是标题+时间，这些情况对不上，但列表里不该出现两条。
+        val mergeTarget = Repo.findMergeTarget(event)
+        if (mergeTarget != null) {
+            if (mergeTarget.hasTime && !event.hasTime) {
+                CaptureLog.record(
+                    app, text, CaptureRecord.OUT_SKIPPED,
+                    "已有一条更完整的「${mergeTarget.title}」，不再建全天版"
+                )
+                return mergeTarget.id
+            }
 
-        if (unsure) {
+            var merged = mergeTarget.copy(
+                // 全天被补全成带钟点时，用新通知的标题（旧标题往往被截断在"可以在"）
+                title = if (!mergeTarget.hasTime && event.hasTime) event.title else mergeTarget.title,
+                startAt = event.startAt,
+                hasTime = event.hasTime,
+                location = event.location ?: mergeTarget.location,
+                note = event.note ?: mergeTarget.note,
+                // 两版只要有一版够有把握，就不用再挂着"待确认" ——
+                // 之前多半是因为缺时间才待确认，完整版到了就该转正
+                pending = mergeTarget.pending && unsure,
+                pendingReason = if (mergeTarget.pending && unsure) mergeTarget.pendingReason else null
+            )
+            // 合并后的时间/地点也可能撞上第三条；同样交给待确认，不直接排提醒
+            if (!merged.pending) {
+                val mergeConflict = EventConflict.check(merged, Repo.active(), System.currentTimeMillis())
+                if (mergeConflict != null) {
+                    merged = merged.copy(
+                        pending = true,
+                        pendingReason = EventConflict.reason(mergeConflict)
+                    )
+                }
+            }
+            Repo.update(merged)
+            // 旧提醒（如果有）的时间/内容已经过时，先撤掉再按合并后的时间重排
+            Notifications.clearRemind(ctx, merged.id)
+            if (merged.pending) {
+                // 原本已转正的条目可能已经排了闹钟；合并后因为冲突退回待确认，
+                // 必须把旧闹钟撤掉，否则它还会按旧时间响。
+                ReminderScheduler.cancel(ctx, merged.id)
+                Notifications.postPending(ctx, merged)
+            } else {
+                // 从待确认合并成正式日程时，通知栏那条"需要确认"也要撤掉
+                Notifications.clearPending(ctx, merged.id)
+                ReminderScheduler.schedule(ctx, merged)
+                Notifications.postCaptured(ctx, merged)
+            }
+            CaptureLog.record(
+                app, text,
+                if (merged.pending) CaptureRecord.OUT_PENDING else CaptureRecord.OUT_CREATED,
+                if (merged.pending) "已合并但仍待确认：${merged.pendingReason.orEmpty()}"
+                else "已合并到已有日程：${merged.title}"
+            )
+            return merged.id
+        }
+
+        // 和已有日程对一下：同一时间、或名称+地点高度重合时，不直接转正，
+        // 先落成待确认。这样既不会悄悄建出时间冲突，也不会把简单的消息变更
+        // 变成两条互相矛盾的日程。
+        val conflict = EventConflict.check(event, Repo.active(), System.currentTimeMillis())
+        val conflictReason = conflict?.let(EventConflict::reason)
+        val finalPending = unsure || conflict != null
+        val finalReason = when {
+            unsure && conflictReason != null -> "$reason；$conflictReason"
+            unsure -> reason
+            else -> conflictReason
+        }
+        val finalEvent = event.copy(pending = finalPending, pendingReason = finalReason)
+
+        val id = Repo.insert(finalEvent)
+        val saved = finalEvent.copy(id = id)
+
+        if (finalPending) {
             // 待确认的不排提醒，等用户确认后再排
             Notifications.postPending(ctx, saved)
-            CaptureLog.record(app, text, CaptureRecord.OUT_PENDING, reason)
+            CaptureLog.record(app, text, CaptureRecord.OUT_PENDING, finalReason.orEmpty())
         } else {
             ReminderScheduler.schedule(ctx, saved)
             Notifications.postCaptured(ctx, saved)

@@ -52,7 +52,14 @@ data class Event(
      */
     val revoked: Boolean = false,
     /** 取消理由，含原文片段，直接展示给用户判断 */
-    val revokeReason: String? = null
+    val revokeReason: String? = null,
+    /**
+     * true = 已归档：主列表不再显示、不再排提醒，在「归档日志」里可以恢复。
+     *
+     * 和 done 的区别：done 是"这件事做完了"，归档是"把它从眼前收起来"。
+     * 老数据里勾过"已结束"的，升级时统一搬成归档。
+     */
+    val archived: Boolean = false
 ) {
     companion object {
         const val SRC_MANUAL = "manual"

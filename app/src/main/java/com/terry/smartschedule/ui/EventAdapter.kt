@@ -23,7 +23,10 @@ sealed class Row {
 }
 
 class EventAdapter(
-    /** 勾选框：标记完成 / 取消完成 */
+    /**
+     * 右侧那个框：现在表示「归档」——点一下就把这条丢进「归档日志」。
+     * 参数名沿用 onToggle，是为了不在同一次改动里同时动布局、适配器、Activity 三处。
+     */
     private val onToggle: (Event) -> Unit,
     /** 点击卡片（非多选模式）：打开编辑面板 */
     private val onClick: (Event) -> Unit,
@@ -190,14 +193,17 @@ class EventAdapter(
                     ColorStateList.valueOf(ContextCompat.getColor(ctx, R.color.cancel_fill))
             }
 
-            val selecting = selectionMode
-            val selected = selecting && event.id in selectedIds
+            val selected = selectionMode && event.id in selectedIds
 
-            // 右侧那块位置：多选时显示选中框，平时显示完成框。
-            // 待确认的条目没有"完成"语义，所以平时两个都不显示。
-            b.cbSelect.visibility = if (selecting) View.VISIBLE else View.GONE
-            b.cbSelect.isChecked = selected
-            b.cbDone.visibility = if (selecting || pending) View.GONE else View.VISIBLE
+            // 最左侧：多选。常驻显示，点它进入多选并选中；已在多选里则切换。
+            b.cbSelectLeft.isChecked = selected
+            b.cbSelectLeft.setOnClickListener {
+                if (selectionMode) onToggleSelection(event) else onEnterSelection(event)
+            }
+
+            // 右侧：归档。点一下这条就从主列表消失，进「归档日志」。
+            b.cbArchive.isChecked = false
+            b.cbArchive.setOnClickListener { onToggle(event) }
 
             // 背景优先级：选中 > 待确认 > 普通。
             // 只在真的变了才换：setBackgroundResource 会重建 Drawable 并触发重绘，
@@ -224,12 +230,6 @@ class EventAdapter(
                 b.tvTime.setTextColor(
                     ContextCompat.getColor(ctx, if (pending) R.color.warn else R.color.brand)
                 )
-            }
-
-            b.cbDone.setOnCheckedChangeListener(null)
-            b.cbDone.isChecked = event.done
-            b.cbDone.setOnCheckedChangeListener { _, checked ->
-                if (checked != event.done) onToggle(event)
             }
 
             // 点卡片：多选时切换选中，平时打开编辑。

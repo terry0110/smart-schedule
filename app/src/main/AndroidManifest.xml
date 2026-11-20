@@ -74,6 +74,13 @@
             android:label="@string/capture_log_title"
             android:parentActivityName=".ui.SettingsActivity" />
 
+        <!-- 归档日志：主列表右侧归档框进来的日程在这里恢复或删除 -->
+        <activity
+            android:name=".ui.ArchiveActivity"
+            android:exported="false"
+            android:label="@string/archive_title"
+            android:parentActivityName=".ui.MainActivity" />
+
         <!--
           到点的全屏提醒页。
 

@@ -50,6 +50,14 @@ class ReminderPlanTest {
     // ---------------- 核心：提醒点在过去的，必须还能响 ----------------
 
     @Test
+    fun `归档的日程不提醒`() {
+        val e = event(startAt = now + 60 * 60_000L).copy(archived = true)
+        val p = planOf(e)
+        assertTrue("归档后不该再响，实际 $p", p is ReminderPlan.Plan.Skip)
+        assertTrue((p as ReminderPlan.Plan.Skip).reason.contains("已归档"))
+    }
+
+    @Test
     fun `事件五分钟后开始时立刻提醒，而不是永不提醒`() {
         // 20:52 开始，提前 10 分钟 → 提醒点 20:42 已过
         val p = planOf(event(startAt = at(2026, 10, 24, 20, 52)))

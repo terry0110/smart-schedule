@@ -73,6 +73,34 @@ object TextNorm {
         return ka.isNotEmpty() && ka == key(b)
     }
 
+    /**
+     * 改期通知的前缀。它不属于事件内容，判重时必须先剥掉 ——
+     * 「现有变，最近…」和「最近…」是同一件事，不剥前缀会被当成两条。
+     */
+    private val REVISE_PREFIX = Regex(
+        "^(?:现时间有变|现有变|时间有变|时间变更|时间改了|改了时间|时间有调整)[，,。:：\\s]*"
+    )
+
+    /**
+     * 宽松判重键：先剥掉改期前缀，再做 [key]。
+     * 只用于"两条是不是同一件事"，不要拿去做搜索或展示。
+     */
+    fun looseKey(text: String): String = key(text.replaceFirst(REVISE_PREFIX, ""))
+
+    /**
+     * 宽松同题判断：允许短的是长的子串，但要求：
+     * - 短的那条至少 6 个字（"开会"和"开会讨论"不算同一件事）；
+     * - 长度差 ≤8（"…可以在"这种截断尾巴算同一条，"…通知"这种补充不算）。
+     */
+    fun sameTitleLoose(a: String, b: String): Boolean {
+        val ka = looseKey(a)
+        val kb = looseKey(b)
+        if (ka.isEmpty() || kb.isEmpty()) return a == b
+        if (ka == kb) return true
+        val (short, long) = if (ka.length <= kb.length) ka to kb else kb to ka
+        return short.length >= 6 && long.contains(short) && long.length - short.length <= 8
+    }
+
     /** 全角→半角；非字母数字汉字（标点、空白、emoji、零宽字符）一律丢弃 */
     private fun fold(ch: Char): Char? = when {
         ch in '０'..'９' -> '0' + (ch - '０')

@@ -27,6 +27,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.terry.smartschedule.R
 import com.terry.smartschedule.data.Event
+import com.terry.smartschedule.data.EventConflict
 import com.terry.smartschedule.data.EventEdit
 import com.terry.smartschedule.data.Repo
 import com.terry.smartschedule.databinding.ActivityMainBinding
@@ -140,7 +141,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         adapter = EventAdapter(
-            onToggle = ::toggleDone,
+            onToggle = ::archiveEvent,
             onClick = ::openEditor,
             onEnterSelection = ::enterSelection,
             onToggleSelection = ::toggleSelection
@@ -152,6 +153,9 @@ class MainActivity : AppCompatActivity() {
 
         b.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        b.btnArchive.setOnClickListener {
+            startActivity(Intent(this, ArchiveActivity::class.java))
         }
 
         // 检索
@@ -1016,15 +1020,38 @@ class MainActivity : AppCompatActivity() {
         )
 
         lifecycleScope.launch {
+            // 手动添加也要去重。以前只有通知抓取会查，走一遍"识别 → 添加"
+            // 就能把同一条日程加出两份。
+            val dup = Repo.findSameEvent(title, startAt, event.location)
+            if (dup != null) {
+                toast("已经有了：${TimeFmt.summary(dup.startAt, dup.hasTime, dup.location)}")
+                done(false)
+                return@launch
+            }
+
+            // 和通知抓取同一套冲突判断：同一时间、或名称+地点高度重合时，
+            // 先让用户确认。手动添加不标 pending —— 用户已经在面板里确认过，
+            // 这里只需要确认"知道还有另一条相似的"。
+            val conflict = EventConflict.check(event, Repo.active(), System.currentTimeMillis())
+            if (conflict != null) {
+                MaterialAlertDialogBuilder(this@MainActivity)
+                    .setTitle("可能有冲突")
+                    .setMessage(EventConflict.reason(conflict) + "\n\n仍要添加吗？")
+                    .setNegativeButton(R.string.cancel) { _, _ -> done(false) }
+                    .setPositiveButton("仍要添加") { _, _ ->
+                        insertManual(event, title, done)
+                    }
+                    .show()
+                return@launch
+            }
+            insertManual(event, title, done)
+        }
+    }
+
+    /** 手动添加的最后一步。冲突弹窗确认后也走这里，避免两份插入代码走岔 */
+    private fun insertManual(event: Event, title: String, done: (Boolean) -> Unit) {
+        lifecycleScope.launch {
             try {
-                // 手动添加也要去重。以前只有通知抓取会查，走一遍"识别 → 添加"
-                // 就能把同一条日程加出两份。
-                val dup = Repo.findSameEvent(title, startAt, event.location)
-                if (dup != null) {
-                    toast("已经有了：${TimeFmt.summary(dup.startAt, dup.hasTime, dup.location)}")
-                    done(false)
-                    return@launch
-                }
                 val id = Repo.insert(event)
                 ReminderScheduler.schedule(this@MainActivity, event.copy(id = id))
                 b.etInput.text?.clear()
@@ -1106,8 +1133,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun reload() {
         lifecycleScope.launch {
-            val all = Repo.all()
-            // 筛选只影响列表显示；待确认计数和选中态都按全量算 ——
+            // 主列表不含归档；归档的条目在「归档日志」里看
+            val all = Repo.active()
+            // 筛选只影响列表显示；待确认计数和选中态都按当前列表全量算 ——
             // 不然"筛到学习"时横幅数字会变，看着像数据丢了
             var list = filterCat?.let { c -> all.filter { Category.of(it.category) == c } } ?: all
 
@@ -1200,6 +1228,23 @@ class MainActivity : AppCompatActivity() {
             rows.add(Row.Item(e))
         }
         return rows
+    }
+
+    /**
+     * 右侧框：归档。
+     *
+     * 不是"标记完成" —— 点一下这条就从主列表消失，进「归档日志」，
+     * 在那边可以恢复或彻底删除。归档会停掉闹钟和通知栏里的提醒/待确认。
+     */
+    private fun archiveEvent(event: Event) {
+        lifecycleScope.launch {
+            Repo.archive(event.id)
+            ReminderScheduler.cancel(this@MainActivity, event.id)
+            Notifications.clearRemind(this@MainActivity, event.id)
+            Notifications.clearPending(this@MainActivity, event.id)
+            toast("已归档：${event.title}")
+            reload()
+        }
     }
 
     private fun toggleDone(event: Event) {

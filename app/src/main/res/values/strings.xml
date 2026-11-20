@@ -111,6 +111,15 @@
     <string name="settings_privacy_note">日程、抓取日志、设置全部只存在本机，不参与系统云备份，也不会上传到任何服务器——本应用连网络权限都没有。唯一会写出去的，是你自己打开的「系统日历同步」，且只写进本机日历，不进任何账号。</string>
     <string name="settings_wipe">删除所有本地数据</string>
 
+    <!-- 归档日志 -->
+    <string name="archive_title">归档日志</string>
+    <string name="archive_empty">还没有归档的日程</string>
+    <string name="action_restore">恢复</string>
+    <string name="settings_dedupe">清理重复日程</string>
+    <!-- 列表行内的两个复选框：读屏要的是"这一行的动作"，不是全局按钮名 -->
+    <string name="row_select">选择此日程</string>
+    <string name="row_archive">归档此日程</string>
+
     <!-- 捕获日志页 -->
     <string name="capture_log_title">通知处理记录</string>
     <string name="capture_log_empty">还没有记录。\n开启通知监听后，每一条被处理的通知都会记在这里。</string>

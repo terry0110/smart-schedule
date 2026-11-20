@@ -51,7 +51,9 @@ object Revise {
             val newStartAt: Long,
             val newHasTime: Boolean,
             val meridiemGuessed: Boolean,
-            val newLocation: String? = null
+            val newLocation: String? = null,
+            /** true = 来自「时间有变」这类没有旧时间锚点的句子，匹配时要看正文重合度 */
+            val fromTimeChanged: Boolean = false
         ) : Verdict
 
         /**
@@ -86,6 +88,23 @@ object Revise {
 
     /** 改期动词。带地点语气的「换到 / 移到 / 搬到 / 调到」也算 —— 具体是改时间还是改地点，由动词后的内容决定 */
     private val RE_MOVE = Regex("(推迟|延期|延后|顺延|提前|提早|推前|改到|改在|改为|改成|调整到|调整至|挪到|挪至|换到|移到|搬到|调到)")
+
+    /**
+     * 没有「原定」，但明说时间变了：「现时间有变」「时间改了」。
+     *
+     * 真实案例是班委先发「下周六…盖章」，又发「现时间有变，…下周日…盖章」。
+     * 第二句里没有「原定」，[RE_MOVE] 也匹配不到，旧逻辑会把它当成一条全新日程，
+     * 于是列表里出现两条互相矛盾的时间。
+     *
+     * 注意：这里只负责**认出来**，新时间在句子后半段，不能用 [newChunkAfter] 的
+     * "第一个逗号截断"策略去取。
+     *
+     * 不收裸词「时间调整」「时间变更」：场馆/图书馆的「开放时间调整通知」
+     * 「营业时间变更公告」也是这些字，但它们是一条全新通告，不是对已有日程的修改。
+     * 带「有/被」或改期动词时才会命中。
+     */
+    private val RE_TIME_CHANGED =
+        Regex("(时间有变|时间有变更|时间有调整|时间被调整|时间改了|改了时间|时间有改动|现有变)")
 
     /** 「不取消」「没取消」不算取消 */
     private val RE_CANCEL = Regex("(?<![不没别])(取消|不开了|不办了|不搞了|作废|撤销)")
@@ -130,6 +149,9 @@ object Revise {
 
         val move = RE_MOVE.find(t)
         val cancel = RE_CANCEL.find(t)
+        // 取最后一次「时间有变」：同一条通知里可能把旧版和新版都贴出来，
+        // 最后一版才是用户要的。用第一次会在「…下周六…和…时间有变…下周日…」里选错。
+        val timeChanged = RE_TIME_CHANGED.findAll(t).lastOrNull()
 
         // 既像改期又像取消时，先看改期那半能不能给出新时间：
         //   「会取消了，改到下周」→ 能给出新时间，这是延期，按改期处理
@@ -141,12 +163,67 @@ object Revise {
             if (cancel != null) {
                 return Verdict.Cancel(parseOld(t, cancel.range.first, now)?.dt?.let(::toMillis))
             }
+            // 「原定…」的改期没抽出新时间，但句子里还写了「时间有变」时，
+            // 再给这个更宽松的入口一次机会（它会在整段里找日期，而不是只看一个逗号）
+            if (timeChanged != null) {
+                val tv = detectTimeChanged(t, timeChanged.range, now)
+                if (tv is Verdict.Move) return tv
+            }
             return mv
         }
         if (cancel != null) {
             return Verdict.Cancel(parseOld(t, cancel.range.first, now)?.dt?.let(::toMillis))
         }
+        if (timeChanged != null) {
+            return detectTimeChanged(t, timeChanged.range, now)
+        }
         return Verdict.None
+    }
+
+    /**
+     * 「时间有变」类通知的新时间解析。
+     *
+     * 和 [detectMove] 的区别：不要求动词后面紧跟时间，也不在第一个逗号处截断 ——
+     * 这类句子的结构是「时间有变，<一大段说明>，下周日 3 点」，
+     * 时间在很后面，截断了就什么都拿不到。
+     */
+    private fun detectTimeChanged(t: String, range: IntRange, now: LocalDateTime): Verdict {
+        val oldStart = parseOld(t, range.first, now)?.dt
+        val oldMs = oldStart?.let(::toMillis)
+
+        // 只取标记后面 160 字：再长的通告通常也把新时间写在开头附近，
+        // 取整段会把落款、备注里的其他日期也扫进来
+        val tail = t.substring(range.last + 1).take(160)
+        val parsed = parseChunk(tail, now)
+            ?: return Verdict.Unclear("说了时间有变，但没给出可用的新时间", oldMs)
+
+        // 只有「3点」没有日期：日期纯靠猜，和"只有时间没有日期不建"的口径一致
+        if (parsed.dateSource == DateTimeParser.DateSource.TIME_ONLY && oldStart == null) {
+            return Verdict.Unclear("时间有变，但只有钟点没有日期", oldMs)
+        }
+
+        // 和 detectMove 一样：文本里写了钟点但解析器没抽出来，不能当成"改成全天"。
+        // 这条通知可能只是"11月22日25点"这种脏格式；静默丢掉 15:00 比漏改更难发现。
+        if (!parsed.hasTime && RE_HOUR_MARK.containsMatchIn(tail)) {
+            return Verdict.Unclear(
+                "时间有变，时间里有钟点但没解析出来：${tail.take(30)}",
+                oldMs
+            )
+        }
+
+        val withDate = inheritDate(parsed, oldStart)
+        val fixed = if (oldStart != null) {
+            fixMeridiem(withDate, oldStart, RE_MERIDIEM.containsMatchIn(tail))
+        } else {
+            withDate to false
+        }
+        return Verdict.Move(
+            oldStartAt = oldMs,
+            newStartAt = toMillis(fixed.first),
+            newHasTime = parsed.hasTime,
+            meridiemGuessed = fixed.second,
+            fromTimeChanged = true
+        )
     }
 
     private fun detectMove(t: String, range: IntRange, now: LocalDateTime): Verdict {
@@ -173,6 +250,12 @@ object Revise {
 
         if (parsed == null) {
             return Verdict.Unclear("改期时间解析不出来：$newChunk", oldMs)
+        }
+
+        // 没有旧时间锚点、又只有「3点」这种钟点：日期是靠"今天/明天"猜的。
+        // 拿猜出来的日期去改已有日程，比漏改危险得多，所以不动数据。
+        if (parsed.dateSource == DateTimeParser.DateSource.TIME_ONLY && oldStart == null) {
+            return Verdict.Unclear("改期时间只有钟点，没有日期", oldMs)
         }
 
         // 「改到后天五点」里钟点没解析出来 —— 解析器漏了，不能当成"改到后天全天"
@@ -262,6 +345,45 @@ object Revise {
         }
         return hit.singleOrNull()
     }
+
+    /**
+     * 「时间有变」这类没有旧时间锚点的候选匹配。
+     *
+     * 为什么不能沿用 [pick]：它只看标题的"有没有任意一个字重合"。候选一多，
+     * 「部门周会」和「下周日」共用一个「周」字就会被算作命中，几乎永远筛不干净。
+     * 这里把标题、地点、**原文**一起拿来比，按重合字数打分，并且要求：
+     * - 至少重合 [MIN_CONTENT_OVERLAP] 个字；
+     * - 明显领先第二名（≥2 倍）。
+     *
+     * 不满足就返回 null，交给人工确认。没有时间锚点时，这是唯一不靠猜的办法。
+     */
+    fun pickByContent(candidates: List<Event>, titleHint: String): Event? {
+        if (candidates.isEmpty()) return null
+        // 只有一条候选也不能直接认领：无旧时间锚点时，它可能只是"未来两天里唯一一条"，
+        // 和这条通知毫无关系。必须同样过正文重合门槛，否则就是静默改错日程。
+        val hint = TextNorm.key(titleHint)
+        if (hint.isEmpty()) return null
+        // 用**二元组**而不是单字：单字重合会被"的/在/会/学"这类公共字带偏，
+        // 两个候选都能拿到差不多的分，结果永远筛不出来。
+        val grams = if (hint.length >= 2) hint.windowed(2).toSet() else setOf(hint)
+
+        fun score(e: Event): Int {
+            val text = TextNorm.key(
+                listOfNotNull(e.title, e.location, e.note).joinToString(" ")
+            )
+            return grams.count { it in text }
+        }
+
+        val scored = candidates.map { it to score(it) }.sortedByDescending { it.second }
+        val best = scored[0]
+        if (best.second < MIN_CONTENT_OVERLAP) return null
+        val runnerUp = scored.getOrNull(1)
+        if (runnerUp != null && best.second < runnerUp.second * 2) return null
+        return best.first
+    }
+
+    /** 正文重合度门槛。低于它说明只命中了公共词，不足以定位 */
+    private const val MIN_CONTENT_OVERLAP = 8
 
     /**
      * 信息不全时，值不值得发通知打扰用户。

@@ -29,7 +29,7 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 
 ## 出包规矩
 
-- 日常只用 `./pack.sh`，它默认只出 debug（约 4.9M）。**不要顺手出 release。**
+- 日常只用 `./pack.sh`，它默认只出 debug（约 4.8M）。**不要顺手出 release。**
 - release 和 debug 签名不同，不能覆盖安装，切换会丢日程数据 —— 而这个应用还没有导出 / 导入。
 - 每次出包先升 `app/build.gradle.kts` 里的 `versionCode` / `versionName`，
   `pack.sh` 会自动读出来命名并追加 `dist/HISTORY.md`（那个文件是脚本维护的，别手改）。
@@ -46,14 +46,16 @@ adb=/d/leidian/LDPlayer9/adb.exe                     # 雷电模拟器，不在�
 4. **加数据库字段走六步**：`CREATE TABLE` 加列（带 DEFAULT）→ `DB_VERSION` +1 →
    `onUpgrade` 加 `if (oldVersion < N)` 分支 → `Event.toValues()` → `Repo.toEvent()` →
    检查有没有 SELECT 白名单。
-5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**265 条全绿、0 error** 才算完事。
+5. 改完必须 `./gradlew testDebugUnitTest lintDebug`：**313 条全绿、0 error** 才算完事。
 
-## 当前状态（2026-11-19）
+## 当前状态（2026-11-20）
 
-- **v1.40** / versionCode 40 / DB v8 / 265 条单测 / lint 0 error
+- **v1.46** / versionCode 46 / DB v9 / 313 条单测 / lint 0 error
 - 已有功能：通知抓取建日程、手动粘贴识别、四档提醒方式、分类、检索、
-  系统日历同步、改期 / 取消 / 换地点识别、改期没认准时的人工确认、
-  应用内改期待办、前台即时刷新、换地点后已弹提醒原地更新
+  系统日历同步、改期 / 取消 / 换地点 / 「时间有变」识别、改期没认准时的人工确认、
+  应用内改期待办、前台即时刷新、换地点后已弹提醒原地更新、自动改期撤旧提醒、
+  截断版/完整版通知合并、入库前冲突确认（同一时间 / 名称+地点重合）、
+  左侧多选批量删除、右侧一键归档 + 「归档日志」页（恢复/删除）、设置页「清理重复日程」
 - **v1.36 删掉了「按剩余时间改写提醒」那套（`Urgency.kt`）**，这是明确的要求，不要再加回来
 - **v1.34 删掉了云端大模型解析**，整个应用没有任何网络能力，也不许重新引入
 

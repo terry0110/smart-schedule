@@ -65,6 +65,7 @@ object Repo {
     private fun mirrorToCalendar(event: Event) {
         if (!Prefs.calendarSync || !CalendarSync.hasPermission(app)) return
         runCatching {
+            if (event.archived) return  // 归档的不再往来推；日历里已有的历史条目保留
             if (event.pending) return  // 待确认的先别污染用户日历，确认后再推
             if (event.calEventId > 0 && CalendarSync.update(app, event, event.calEventId)) return
             // 没同步过，或系统那边那行已经被删了 —— 重新推一条并记下新 id
@@ -100,7 +101,7 @@ object Repo {
         if (!CalendarSync.hasPermission(app)) return@withContext 0
         var pushed = 0
         for (event in all()) {
-            if (event.pending || event.done) continue
+            if (event.archived || event.pending || event.done) continue
             if (event.calEventId > 0 && CalendarSync.exists(app, event.calEventId)) continue
             val calId = CalendarSync.push(app, event) ?: continue
             setCalId(event.id, calId)
@@ -190,9 +191,53 @@ object Repo {
         ).use { c -> c.toEvents() }
     }
 
+    /** 主列表：不含已归档。排序口径和 [all] 一致 */
+    suspend fun active(): List<Event> = withContext(Dispatchers.IO) {
+        helper.readableDatabase.query(
+            EventDb.TABLE, null, "${EventDb.C_ARCHIVED}=0", null, null, null,
+            "${EventDb.C_PENDING} DESC, ${EventDb.C_DONE} ASC, ${EventDb.C_START} ASC"
+        ).use { c -> c.toEvents() }
+    }
+
+    /** 归档日志：最近的在前 */
+    suspend fun archived(): List<Event> = withContext(Dispatchers.IO) {
+        helper.readableDatabase.query(
+            EventDb.TABLE, null, "${EventDb.C_ARCHIVED}=1", null, null, null,
+            "${EventDb.C_START} DESC"
+        ).use { c -> c.toEvents() }
+    }
+
+    /** 归档一条。停掉闹钟；通知由调用方撤（数据层不碰 NotificationManager 的细节） */
+    suspend fun archive(id: Long) = withContext(Dispatchers.IO) {
+        val cv = android.content.ContentValues().apply { put(EventDb.C_ARCHIVED, 1) }
+        helper.writableDatabase.update(
+            EventDb.TABLE, cv, "${EventDb.C_ID}=?", arrayOf(id.toString())
+        )
+        ReminderScheduler.cancel(app, id)
+        Unit
+    }
+
+    /**
+     * 从归档恢复。
+     *
+     * 顺手把 done 清零：新版本的"结束"入口是归档，done 只是老数据字段。
+     * 不清的话，从归档恢复出来的老"已完成"日程会带着删除线、又没有任何地方能取消它。
+     */
+    suspend fun unarchive(id: Long) = withContext(Dispatchers.IO) {
+        val cv = android.content.ContentValues().apply {
+            put(EventDb.C_ARCHIVED, 0)
+            put(EventDb.C_DONE, 0)
+        }
+        helper.writableDatabase.update(
+            EventDb.TABLE, cv, "${EventDb.C_ID}=?", arrayOf(id.toString())
+        )
+        Unit
+    }
+
     suspend fun pendingCount(): Int = withContext(Dispatchers.IO) {
         helper.readableDatabase.rawQuery(
-            "SELECT COUNT(*) FROM ${EventDb.TABLE} WHERE ${EventDb.C_PENDING}=1", null
+            "SELECT COUNT(*) FROM ${EventDb.TABLE} " +
+                "WHERE ${EventDb.C_PENDING}=1 AND ${EventDb.C_ARCHIVED}=0", null
         ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
     }
 
@@ -200,7 +245,8 @@ object Repo {
         withContext(Dispatchers.IO) {
             helper.readableDatabase.query(
                 EventDb.TABLE, null,
-                "${EventDb.C_START}>=? AND ${EventDb.C_DONE}=0 AND ${EventDb.C_PENDING}=0",
+                "${EventDb.C_START}>=? AND ${EventDb.C_DONE}=0 " +
+                    "AND ${EventDb.C_PENDING}=0 AND ${EventDb.C_ARCHIVED}=0",
                 arrayOf(from.toString()), null, null, "${EventDb.C_START} ASC"
             ).use { c -> c.toEvents() }
         }
@@ -255,7 +301,7 @@ object Repo {
             EventDb.TABLE, null,
             // 地点也算要素：同标题同时间但地点不同，是两件事，不能吞
             // （IFNULL 统一空值口径，null 和没填都算"没有地点"）
-            "$col=? AND ${EventDb.C_START} BETWEEN ? AND ? " +
+            "$col=? AND ${EventDb.C_ARCHIVED}=0 AND ${EventDb.C_START} BETWEEN ? AND ? " +
                 "AND IFNULL(${EventDb.C_LOCATION},'')=?$extra",
             args, null, null, null, "1"
         ).use { c -> if (c.moveToFirst()) c.toEvent() else null }
@@ -267,6 +313,31 @@ object Repo {
         startAt: Long,
         location: String? = null
     ): Boolean = findSameEvent(title, startAt, location, windowMs = 5 * 60_000L) != null
+
+    /**
+     * 找「同一条通知的另一版」：标题宽松同题、同一天、地点不冲突。
+     *
+     * 典型场景是同一条群通知先被截断成"…可以在下周六"（只解析出全天），
+     * 后来又推送了完整版（下午3点）。精确判重比的是标题+时间，全天 09:00
+     * 和 15:00 对不上，于是列表里出现两条。
+     *
+     * 只查前后一天的范围：判断交给纯函数 [EventMerge.shouldMerge]，
+     * 多条命中时取最新创建的那条（用户最近看到的那条最可能是当前版本）。
+     */
+    suspend fun findMergeTarget(incoming: Event): Event? = withContext(Dispatchers.IO) {
+        val zone = java.time.ZoneId.systemDefault()
+        val day = java.time.Instant.ofEpochMilli(incoming.startAt).atZone(zone).toLocalDate()
+        val from = day.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = day.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        helper.readableDatabase.query(
+            EventDb.TABLE, null,
+            "${EventDb.C_START} BETWEEN ? AND ?",
+            arrayOf(from.toString(), to.toString()),
+            null, null, "${EventDb.C_CREATED} DESC"
+        ).use { it.toEvents() }
+            .firstOrNull { !it.archived && EventMerge.shouldMerge(it, incoming) }
+    }
 
     /**
      * 「改期 / 取消通知」可能指向的候选日程。
@@ -293,7 +364,7 @@ object Repo {
             arrayOf(from.toString(), to.toString()),
             null, null, "${EventDb.C_START} ASC"
         ).use { it.toEvents() }
-            .filter { !it.done && !it.revoked && !it.pending }
+            .filter { !it.done && !it.revoked && !it.pending && !it.archived }
     }
 
     /**
@@ -305,8 +376,16 @@ object Repo {
      *
      * @param titleHint 传整句通知原文，不要传解析出来的标题 —— 改期句式的标题通常很脏
      */
-    suspend fun findReviseTarget(oldStartAt: Long?, titleHint: String): Event? =
-        Revise.pick(reviseCandidates(oldStartAt), titleHint)
+    suspend fun findReviseTarget(
+        oldStartAt: Long?,
+        titleHint: String,
+        /** true = 没有旧时间锚点（「时间有变」），用正文重合度挑，见 [Revise.pickByContent] */
+        byContent: Boolean = false
+    ): Event? {
+        val cands = reviseCandidates(oldStartAt)
+        return if (byContent) Revise.pickByContent(cands, titleHint)
+        else Revise.pick(cands, titleHint)
+    }
 
     /** 标记「来源通知说取消了」。不删数据，只是打个标 + 记下理由 */
     suspend fun revoke(id: Long, reason: String) = withContext(Dispatchers.IO) {
@@ -318,6 +397,43 @@ object Repo {
         // 不再提醒：已经取消的事再响一次是纯噪音
         ReminderScheduler.cancel(app, id)
     }
+
+    /** 库里现存重复日程的分组（只读，不删） */
+    suspend fun duplicateGroups(): List<EventDeduper.Group> = withContext(Dispatchers.IO) {
+        EventDeduper.group(active())
+    }
+
+    /**
+     * 按 [duplicateGroups] 的结果删除多余条目，返回删除条数。
+     * 日历镜像由 [deleteMany] 一并处理；提醒/通知在真正删除前按实际删除项撤，
+     * 不交给调用方按旧快照撤 —— 否则弹窗期间被改期的条目会被误撤提醒。
+     *
+     * 用户确认的是"弹窗之前"的分组，期间通知服务仍可能改期/改地点；所以删除前
+     * 按当前库重新读一遍并重新判断相似性。已经改到别的日期/时间、或已被归档/
+     * 完成/取消的条目不再删。删除前还会把 drop 独有的地点/备注补到 keep。
+     */
+    suspend fun mergeDuplicateGroups(groups: List<EventDeduper.Group>): Int =
+        withContext(Dispatchers.IO) {
+            // active() 已排除归档，但含 done / revoked，这里再按当前状态过滤
+            val current = active().associateBy { it.id }
+            var removed = 0
+            for (g in groups) {
+                val drops = EventDeduper.dropsToDelete(g, current)
+                if (drops.isEmpty()) continue
+                val keep = current[g.keep.id] ?: continue
+
+                val merged = EventDeduper.mergeKeep(EventDeduper.Group(keep, drops))
+                if (merged != keep) update(merged)
+                drops.forEach {
+                    ReminderScheduler.cancel(app, it.id)
+                    Notifications.clearRemind(app, it.id)
+                    Notifications.clearPending(app, it.id)
+                }
+                deleteMany(drops.map { it.id })
+                removed += drops.size
+            }
+            removed
+        }
 
     /**
      * 改期：只动时间 / 地点和备注，标题、分类一律不碰。
@@ -383,6 +499,7 @@ object Repo {
         category = getString(getColumnIndexOrThrow(EventDb.C_CATEGORY)) ?: Category.OTHER.key,
         calEventId = getLong(getColumnIndexOrThrow(EventDb.C_CAL_ID)),
         revoked = getInt(getColumnIndexOrThrow(EventDb.C_REVOKED)) == 1,
-        revokeReason = getString(getColumnIndexOrThrow(EventDb.C_REVOKE_REASON))
+        revokeReason = getString(getColumnIndexOrThrow(EventDb.C_REVOKE_REASON)),
+        archived = getInt(getColumnIndexOrThrow(EventDb.C_ARCHIVED)) == 1
     )
 }

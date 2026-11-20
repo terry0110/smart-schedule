@@ -34,7 +34,8 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
                 category TEXT NOT NULL DEFAULT 'other',
                 cal_event_id INTEGER NOT NULL DEFAULT 0,
                 revoked INTEGER NOT NULL DEFAULT 0,
-                revoke_reason TEXT
+                revoke_reason TEXT,
+                archived INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -99,6 +100,13 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN revoked INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN revoke_reason TEXT")
         }
+        // v8 -> v9：归档。
+        // 老版本右侧的勾选框语义是"已结束"；新版本改成"归档"，所以勾过的老数据
+        // 一并搬进归档，升级后主列表不会突然多出一堆带删除线的旧日程。
+        if (oldVersion < 9) {
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE $TABLE SET archived = 1 WHERE done = 1")
+        }
     }
 
     /** 给老数据补分类。用的是纯规则分类器（[CategoryRules]），不需要网络 */
@@ -150,7 +158,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
 
     companion object {
         const val DB_NAME = "schedule.db"
-        const val DB_VERSION = 8
+        const val DB_VERSION = 9
         const val TABLE = "events"
         const val C_TABLE = "capture_log"
         const val S_TABLE = "msg_seen"
@@ -197,6 +205,7 @@ class EventDb(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VE
         const val C_CAL_ID = "cal_event_id"
         const val C_REVOKED = "revoked"
         const val C_REVOKE_REASON = "revoke_reason"
+        const val C_ARCHIVED = "archived"
     }
 }
 
@@ -218,4 +227,5 @@ fun Event.toValues(): ContentValues = ContentValues().apply {
     put(EventDb.C_CATEGORY, category)
     put(EventDb.C_REVOKED, if (revoked) 1 else 0)
     put(EventDb.C_REVOKE_REASON, revokeReason)
+    put(EventDb.C_ARCHIVED, if (archived) 1 else 0)
 }

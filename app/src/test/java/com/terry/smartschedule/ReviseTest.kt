@@ -78,10 +78,16 @@ class ReviseTest {
 
     @Test
     fun `没写原定时间时 oldStartAt 为空`() {
-        // 「会议提前到3点」——不知道原来几点，只能靠标题去库里找
-        val m = move("会议提前到3点")
+        // 有日期（明天）才能 Move；只有钟点的版本见下一条，不猜日期
+        val m = move("会议改到明天下午3点")
         assertNull(m.oldStartAt)
-        assertEquals(LocalDateTime.of(2026, 11, 20, 3, 0), dt(m.newStartAt))
+        assertEquals(LocalDateTime.of(2026, 11, 20, 15, 0), dt(m.newStartAt))
+    }
+
+    @Test
+    fun `没有旧时间又只有钟点时改为不清楚`() {
+        val v = Revise.detect("会议提前到3点", now)
+        assertTrue("应该是 Unclear，实际 $v", v is Revise.Verdict.Unclear)
     }
 
     @Test
@@ -167,9 +173,16 @@ class ReviseTest {
 
     @Test
     fun `改到下午三点仍然是改时间，不是改地点`() {
-        val m = move("改到下午三点")
+        // 带「原定」，日期有锚点，才允许把下午三点落到 11/20 15:00
+        val m = move("原定明天下午四点的会改到下午三点")
         assertNull("地点不该被时间片段污染", m.newLocation)
         assertEquals(LocalDateTime.of(2026, 11, 20, 15, 0), dt(m.newStartAt))
+    }
+
+    @Test
+    fun `没有旧时间又只有钟点时不猜日期`() {
+        val v = Revise.detect("改到下午三点", now)
+        assertTrue("应该是 Unclear，实际 $v", v is Revise.Verdict.Unclear)
     }
 
     @Test

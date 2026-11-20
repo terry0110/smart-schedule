@@ -21,10 +21,19 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="15dp"
+        android:paddingStart="2dp"
         android:paddingTop="14dp"
-        android:paddingEnd="6dp"
+        android:paddingEnd="2dp"
         android:paddingBottom="14dp">
+
+        <!-- 最左侧：多选删除。常驻显示，点它进入多选并选中这一条 -->
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cbSelectLeft"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/row_select"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
 
         <!-- 时间列 -->
         <LinearLayout
@@ -144,7 +153,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
-                android:minHeight="0dp" />
+                android:minHeight="0dp"
+                android:visibility="gone" />
 
             <com.google.android.material.checkbox.MaterialCheckBox
                 android:id="@+id/cbSelect"
@@ -155,6 +165,15 @@
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:visibility="gone" />
+
+            <!-- 右侧归档框：点一下进入「归档日志」。旧的完成框/右侧选中框保留 id 但隐藏 -->
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/cbArchive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/row_archive"
+                android:minWidth="0dp"
+                android:minHeight="0dp" />
         </FrameLayout>
     </LinearLayout>
 </FrameLayout>
