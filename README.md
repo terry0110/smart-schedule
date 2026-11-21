@@ -2,19 +2,17 @@
 
 把通知栏里的**群公告、作业 ddl、培训通知**自动变成日程；也能手动粘一段文字让应用识别。
 
-- [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) —— 下载最新 release APK（仓库不提交 APK）
+- [GitHub Releases](https://github.com/terry0110/smart-schedule/releases) —— 下载最新 release APK
 - 完整 Android 工程，Android Studio 打开即可编译
 
 **给用的人看**：`dist/USER-GUIDE.md`（安装、授权、日常操作、排查）。
-**给接手改代码的人（或 AI）看**：`docs/DEVELOPER-GUIDE.md`（环境、打包签名、代码地图、
-改代码的常见任务、已知限制、上机验证命令）。
-下面这份是开发/迭代记录。
+
 
 ---
 
 ## 更新日志
 
-### v2.1 覆盖包（versionCode 仍为 65，2026-11-21 13:08）
+### v2.1 覆盖包
 
 - 编辑面板「结束」改为「持续时间」，按钮直接显示时长（如「持续时间：1小时30分钟」），
   不再显示结束时刻
@@ -22,7 +20,6 @@
   非法输入提示且不关窗。解析走纯函数 `DurationInput`，7 条单测兜着
 - 选项完整顺序：15分钟 / 30分钟 / 1h / 2h / 全天 / 其它，请输入
 - **验证**：361/361 单测（原 354 + 新增 7）、lint 0 error、release 签名校验通过。
-  未上机截图（模拟器未运行）
 
 ### v2.1 —— 归档恢复修复 + 结束时间选择
 
