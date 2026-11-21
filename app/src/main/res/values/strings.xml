@@ -17,14 +17,19 @@
     <string name="label_title">标题</string>
     <string name="label_location">地点（可选）</string>
     <string name="label_all_day">全天（没有具体时间）</string>
-    <string name="end_at">结束：%1$s</string>
-    <string name="end_all_day">结束：全天</string>
-    <string name="end_pick_title">设置结束时间</string>
+    <string name="end_at">持续时间：%1$s</string>
+    <string name="end_all_day">持续时间：全天</string>
+    <string name="end_pick_title">选择持续时间</string>
     <string name="duration_15m">15分钟</string>
     <string name="duration_30m">30分钟</string>
     <string name="duration_1h">1h</string>
     <string name="duration_2h">2h</string>
     <string name="duration_all_day">全天</string>
+    <string name="duration_other">其它，请输入</string>
+    <string name="duration_input_title">输入持续时间</string>
+    <string name="duration_input_hint">如 90 / 1小时30分钟 / 2h</string>
+    <string name="duration_input_bad">请输入大于 0 的时长，如 90 或 1小时30分钟</string>
+    <string name="action_ok">确定</string>
 
     <string name="empty_title">还没有日程</string>
     <string name="empty_hint">把一段通知粘到上面点「识别」，\n或者去设置里打开通知监听自动抓取</string>

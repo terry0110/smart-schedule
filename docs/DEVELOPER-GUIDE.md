@@ -4,8 +4,8 @@
 > 不需要再问原作者任何问题。
 >
 > 项目路径：`D:\WorkBuddy\outputs\smart-schedule-android`
-> 当前版本：**v2.1（versionCode 65）** · 包名 `com.terry.smartschedule` · 354 个单测 · DB v10
-> 最后更新：2026-11-20
+> 当前版本：**v2.1（versionCode 65）** · 包名 `com.terry.smartschedule` · 361 个单测 · DB v10
+> 最后更新：2026-11-21
 
 ---
 
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1                             # adb pull/push 路径不�
 ```bash
 cd "D:/WorkBuddy/outputs/smart-schedule-android"
 
-./gradlew testDebugUnitTest        # 单测（354 条），改完必跑
+./gradlew testDebugUnitTest        # 单测（361 条），改完必跑
 ./gradlew lintDebug                # 静态检查，标准是 0 error
 ./gradlew assembleDebug            # 只编译
 
@@ -296,7 +296,8 @@ v8→v9 迁移会把老的 `done=1` 统一置为 `archived=1`：新版本右侧�
 避免恢复出来的老日程带着删除线又没法取消。
 
 完成 = 归档：v10 起提醒页/通知栏的「知道了」直接归档，不再新增 `done=1`；
-存量 `done=1` 不会自动迁移，可在主列表右侧「已完成」手动归档。
+存量 `done=1` 不做数据迁移，但查询层把它视为归档（`active()` 排除、`archived()` 包含），
+恢复时 `unarchive` 会清掉 `done`。
 
 `end_at`（v10）：结束时间，0 = 原文没写。解析器从「3点-5点 / 9:00-11:00」里取出来；
 冲突检测按整段区间比较，0 时按当天整天处理（不是估一小时）。日历同步也用它，不再一律写 1 小时。
@@ -852,9 +853,12 @@ flags 从 `0x10` 变为 `0x18`（ONLY_ALERT_ONCE）、`groupKey=silent`，没有
 - 长按进入多选模式 → `enterSelection()` / `toggleSelectAll()` / `confirmDeleteSelected()`
 - 主列表数据源是 `Repo.active()`，不再包含归档条目
 - 编辑面板是 `BottomSheetDialog` + `sheet_preview.xml`（`createSheet()` 构建）
-- 结束时间用 `btnEnd` 选择：`previewDurationMs` 保存时长（0 = 到当天结束），
-  按钮显示「结束：HH:mm」或「结束：全天」；点击弹 15分钟 / 30分钟 / 1h / 2h / 全天
-  五档，识别出的区间不在这几档时不预选，但选任意一档都会覆盖。全天勾选时按钮置灰
+- 持续时间用 `btnEnd` 选择：`previewDurationMs` 保存时长（0 = 到当天结束），
+  按钮显示「持续时间：1小时30分钟」或「持续时间：全天」；点击弹
+  15分钟 / 30分钟 / 1h / 2h / 全天 / **其它，请输入** 六档。
+  自定义走 `DurationInput.parse()`（纯函数，JVM 单测）：纯数字按分钟，
+  支持 `1小时30分钟` / `2h` / `90m`，非法输入不关窗只提示。
+  识别出的区间不在预设档位时不预选，但选任意档都会覆盖。全天勾选时按钮置灰
 - 改期待办（v1.39）：`ReviseInbox` 有内容时列表上方出现「有 N 条改期需要确认」横幅；
   点开 → 选候选 → 确认时间/地点，或进编辑面板手动补。进程重启卡片清空（通知仍在）
 - 检索（v1.33）：标题栏放大镜 → `openSearch()`；检索条占标题行位置、输入卡同步收起；
@@ -935,13 +939,14 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 
 ### 10.1 现状
 
-`app/src/test/` 下 30 个文件、约 3500 行、**354 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
+`app/src/test/` 下 31 个文件、约 3550 行、**361 条 JUnit4 测试**，全部跑在 JVM 上（无 Robolectric、
 无 Instrumented 测试）。`./gradlew testDebugUnitTest` 是唯一的质量门。
 
 | 测试类 | 守什么 |
 |---|---|
 | `DateTimeParserTest` | 基础解析规则 |
 | `NotificationCorpusTest` | 14 条**真实群通知语料**（最有价值，别删） |
+| `ParseMetricsTest` | 性能与准确率基准：单次解析平均耗时、要素逐项对答案（**对外材料数字的唯一出处**） |
 | `FalsePositiveTest` / `PromoFilterTest` / `NicknameAndCarrierTest` | 误报 |
 | `AdversarialInputTest` / `RobustnessTest` | 刁钻/畸形输入不崩 |
 | `DayOnlyDateTest` | 只有"几号"的日期推断 |
@@ -963,6 +968,16 @@ updateEventStyleDesc(vb)    // 刷新下面那行说明（和设置页共用 rem
 | `EventDeduperTest` | 存量重复清理：同次/跨天归组、链式重复不漏、顺序无关、每天例会不误合、地点冲突、归档/已完成不参与、删除前补字段与结束时间/跳过已改期条目 |
 | `EventConflictTest` | 入库前冲突：有结束时间按区间、只写开始时间到当天结束、全天按整天、首尾相接不算、名称+地点重合、门牌号不同不误判、已结束/归档/完成/取消不参与、待确认参与、时间重叠优先 |
 | `TimeRangeParseTest` | 时间区间解析：3点-5点、9:00-11:00、跨天 23:00-01:00、中文数字「六点到九点」、开始/结束句式、破折号/全角连接号、到5号楼不是时间；解析结果直接参与冲突（区间 / 只写开始 / 只有日期）；纯时间描述不会被误判成改期 |
+
+**性能与准确率口径（PPT / 对外材料统一引用这里）**
+
+`ParseMetricsTest` 是当前唯一的性能基准。跑法：14 条语料 / 840 字符，JVM 热机，热身 400 轮 + 计时 3000 轮。
+实测平均 **340.1 µs/条（0.340 ms）**，最快一轮均值 123.9 µs/条，吞吐约 2940 条/秒。
+对外统一写"约 **0.34 毫秒/条**"。不要写 0.18 ms——那个数没有任何代码或报告出处。
+
+准确率来自同一份语料：14 条真实群通知，按日期 / 时间 / 地点 / 标题逐项对答案，合计 **51/51 = 100%**。
+正确说法是"**14 条真实语料 · 51 项要素校验**"。不要写"51 项要素标注"——标注是人工打标签，
+这里做的是拿解析结果跟已有标注对答案，两者不是一回事。详细报告见 `docs/parser-corpus-report.html`。
 
 ### 10.2 写新测试的规矩
 
@@ -1142,7 +1157,7 @@ adb shell uiautomator dump && adb pull /sdcard/window_dump.xml
 
 ```bash
 # 1. 单测 + lint
-./gradlew testDebugUnitTest lintDebug      # 必须 354 条全绿、0 error
+./gradlew testDebugUnitTest lintDebug      # 必须 361 条全绿、0 error
 
 # 2. 版本号 +1（versionCode + versionName）
 # 3. README.md 加一节「### vX.Y —— 一句话说清改了什么」，讲清"为什么"
@@ -1176,4 +1191,4 @@ v1.34 起应用没有任何外部依赖。
 > 宁可少记一条，不要记错一条；宁可多写一段注释，不要留一个"看起来能跑"的猜测；
 > 所有判断逻辑都抽成纯函数并且有单测；改行为之前先想清楚 Android 的规范边界在哪。
 
-照这个脾气改代码，就不会把已有的 354 条测试和保护机制一条条拆掉。
+照这个脾气改代码，就不会把已有的 361 条测试和保护机制一条条拆掉。

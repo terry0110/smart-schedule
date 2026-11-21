@@ -131,4 +131,4 @@
 | 1.62 | 62 | debug | 2026-11-20 22:15 | smart-schedule-v1.62-debug.apk | 4.8M |
 | 1.62 | 62 | release | 2026-11-20 22:23 | smart-schedule-v1.62-release.apk | 4.8M |
 | 2.0 | 64 | release | 2026-11-20 22:58 | smart-schedule-v2.0-release.apk | 4.8M |
-| 2.1 | 65 | release | 2026-11-21 01:10 | smart-schedule-v2.1-release.apk | 4.8M |
+| 2.1 | 65 | release | 2026-11-21 13:08（覆盖，含持续时间改动） | smart-schedule-v2.1-release.apk | 4.9M |

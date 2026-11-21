@@ -65,7 +65,7 @@ object Repo {
     private fun mirrorToCalendar(event: Event) {
         if (!Prefs.calendarSync || !CalendarSync.hasPermission(app)) return
         runCatching {
-            if (event.archived) return  // 归档的不再往来推；日历里已有的历史条目保留
+            if (event.archived || event.done) return  // 归档的不再往来推；日历里已有的历史条目保留
             if (event.pending) return  // 待确认的先别污染用户日历，确认后再推
             if (event.calEventId > 0 && CalendarSync.update(app, event, event.calEventId)) return
             // 没同步过，或系统那边那行已经被删了 —— 重新推一条并记下新 id
@@ -186,15 +186,25 @@ object Repo {
     /** 主列表：不含已归档。排序口径和 [all] 一致 */
     suspend fun active(): List<Event> = withContext(Dispatchers.IO) {
         helper.readableDatabase.query(
-            EventDb.TABLE, null, "${EventDb.C_ARCHIVED}=0", null, null, null,
+            // done=1 是旧版本的"已完成"；统一成归档后不再出现在主列表
+            EventDb.TABLE, null,
+            "${EventDb.C_ARCHIVED}=0 AND ${EventDb.C_DONE}=0",
+            null, null, null,
             "${EventDb.C_PENDING} DESC, ${EventDb.C_DONE} ASC, ${EventDb.C_START} ASC"
         ).use { c -> c.toEvents() }
     }
 
-    /** 归档日志：最近的在前 */
+    /**
+     * 归档日志：最近的在前。
+     *
+     * 旧版本的 `done=1` 在查询层直接视为归档，不做数据迁移；
+     * 恢复时 `unarchive` 会同时清掉 `done`。
+     */
     suspend fun archived(): List<Event> = withContext(Dispatchers.IO) {
         helper.readableDatabase.query(
-            EventDb.TABLE, null, "${EventDb.C_ARCHIVED}=1", null, null, null,
+            EventDb.TABLE, null,
+            "(${EventDb.C_ARCHIVED}=1 OR ${EventDb.C_DONE}=1)",
+            null, null, null,
             "${EventDb.C_START} DESC"
         ).use { c -> c.toEvents() }
     }
@@ -229,7 +239,7 @@ object Repo {
     suspend fun pendingCount(): Int = withContext(Dispatchers.IO) {
         helper.readableDatabase.rawQuery(
             "SELECT COUNT(*) FROM ${EventDb.TABLE} " +
-                "WHERE ${EventDb.C_PENDING}=1 AND ${EventDb.C_ARCHIVED}=0", null
+                "WHERE ${EventDb.C_PENDING}=1 AND ${EventDb.C_ARCHIVED}=0 AND ${EventDb.C_DONE}=0", null
         ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
     }
 
@@ -293,7 +303,7 @@ object Repo {
             EventDb.TABLE, null,
             // 地点也算要素：同标题同时间但地点不同，是两件事，不能吞
             // （IFNULL 统一空值口径，null 和没填都算"没有地点"）
-            "$col=? AND ${EventDb.C_ARCHIVED}=0 AND ${EventDb.C_START} BETWEEN ? AND ? " +
+            "$col=? AND ${EventDb.C_ARCHIVED}=0 AND ${EventDb.C_DONE}=0 AND ${EventDb.C_START} BETWEEN ? AND ? " +
                 "AND IFNULL(${EventDb.C_LOCATION},'')=?$extra",
             args, null, null, null, "1"
         ).use { c -> if (c.moveToFirst()) c.toEvent() else null }
@@ -328,7 +338,7 @@ object Repo {
             arrayOf(from.toString(), to.toString()),
             null, null, "${EventDb.C_CREATED} DESC"
         ).use { it.toEvents() }
-            .firstOrNull { !it.archived && EventMerge.shouldMerge(it, incoming) }
+            .firstOrNull { !it.archived && !it.done && EventMerge.shouldMerge(it, incoming) }
     }
 
     /**

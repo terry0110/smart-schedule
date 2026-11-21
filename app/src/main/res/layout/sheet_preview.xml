@@ -137,7 +137,7 @@
             android:text="@string/label_all_day"
             android:textSize="13sp" />
 
-        <!-- 结束时间：有明确结束时间就显示时刻，点开仍可选时长覆盖。
+        <!-- 持续时间：显示时长本身（如"持续时间：1小时30分钟"），点开可选档位或手输。
              单独一行，避免和上面那个长标签挤在一起被省略号截断 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEnd"

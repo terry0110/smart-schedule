@@ -1,6 +1,7 @@
 package com.terry.smartschedule.ui
 
 import android.Manifest
+import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.BroadcastReceiver
@@ -11,8 +12,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputType
 import android.text.TextWatcher
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,6 +51,7 @@ import com.terry.smartschedule.parse.DateTimeParser
 import com.terry.smartschedule.parse.ParseService
 import com.terry.smartschedule.parse.Prefs
 import com.terry.smartschedule.parse.TextNorm
+import com.terry.smartschedule.util.DurationInput
 import com.terry.smartschedule.util.Insets
 import com.terry.smartschedule.util.TimeFmt
 import kotlinx.coroutines.launch
@@ -1024,34 +1028,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 结束时间按钮：有明确时长就显示具体时刻（跨天标"次日"），
-     * 否则显示"结束：全天"（等价于原来的"到当天结束"）。
+     * 持续时间按钮：显示时长本身，不再显示结束时刻。
+     * 0 = 到当天结束，回显"持续时间：全天"；自定义时长回显"持续时间：1小时30分钟"。
      */
     private fun updateEndButton(vb: SheetPreviewBinding) {
         if (vb.cbAllDay.isChecked) {
             vb.btnEnd.isEnabled = false
             vb.btnEnd.alpha = 0.45f
-            vb.btnEnd.text = getString(R.string.end_all_day)
-            return
+        } else {
+            vb.btnEnd.isEnabled = true
+            vb.btnEnd.alpha = 1f
         }
-        vb.btnEnd.isEnabled = true
-        vb.btnEnd.alpha = 1f
-        if (previewDurationMs <= 0) {
-            vb.btnEnd.text = getString(R.string.end_all_day)
-            return
+        vb.btnEnd.text = if (previewDurationMs <= 0) {
+            getString(R.string.end_all_day)
+        } else {
+            getString(R.string.end_at, DurationInput.label(previewDurationMs))
         }
-        val start = LocalDateTime.of(
-            previewDate ?: LocalDate.now(),
-            previewTime ?: LocalTime.of(9, 0)
-        )
-        val end = start.plusSeconds(previewDurationMs / 1000)
-        val hm = String.format(Locale.US, "%02d:%02d", end.hour, end.minute)
-        val label = if (end.toLocalDate() != start.toLocalDate()) "次日 $hm" else hm
-        vb.btnEnd.text = getString(R.string.end_at, label)
     }
 
     /**
-     * 结束时间选择：15 分钟 / 30 分钟 / 1h / 2h / 全天。
+     * 持续时间选择：15 分钟 / 30 分钟 / 1h / 2h / 全天 / 其它，请输入。
      * 识别出的区间不在这几档时（如 2h30m）不预选，但点选任意一档都会覆盖。
      */
     private fun pickEnd(vb: SheetPreviewBinding) {
@@ -1061,25 +1057,61 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.duration_30m),
             getString(R.string.duration_1h),
             getString(R.string.duration_2h),
-            getString(R.string.duration_all_day)
+            getString(R.string.duration_all_day),
+            getString(R.string.duration_other)
         )
         val values = longArrayOf(
             15 * 60_000L,
             30 * 60_000L,
             60 * 60_000L,
             120 * 60_000L,
-            0L
+            0L,
+            -1L // 自定义，走输入框
         )
         val checked = values.indexOfFirst { it == previewDurationMs }
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.end_pick_title)
             .setSingleChoiceItems(labels, checked) { d, which ->
-                previewDurationMs = values[which]
-                updateEndButton(vb)
                 d.dismiss()
+                if (which == labels.lastIndex) {
+                    showDurationInput(vb)
+                } else {
+                    previewDurationMs = values[which]
+                    updateEndButton(vb)
+                }
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
+    }
+
+    /** 自定义时长输入：非法输入不关窗，提示后让用户改。 */
+    private fun showDurationInput(vb: SheetPreviewBinding) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hint = getString(R.string.duration_input_hint)
+            setSingleLine()
+            if (previewDurationMs > 0) setText(DurationInput.label(previewDurationMs))
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.duration_input_title)
+            .setView(input)
+            .setPositiveButton(R.string.action_ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val ms = DurationInput.parse(input.text.toString())
+            if (ms == null) {
+                Toast.makeText(
+                    this@MainActivity,
+                    R.string.duration_input_bad,
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                previewDurationMs = ms
+                updateEndButton(vb)
+                dialog.dismiss()
+            }
+        }
     }
 
     // ---------------- 保存 ----------------
